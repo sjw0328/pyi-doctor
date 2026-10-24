@@ -1,0 +1,10 @@
+[tool.pyi-doctor]
+entry = "main.py"
+name = "Hello"
+version = "1.0.0"
+publisher = "pyi-doctor example"
+description = "pyi-doctor example application"
+app_id = "3B1D6F0A-6C2E-4C8B-9E57-2A9D4F1C7E31"
+console = true
+onefile = true
+languages = ["english", "korean"]
