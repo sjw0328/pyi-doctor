@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0 - 2026-10-29
+
+- CLI: `pyi-doctor diagnose --icon / --no-icon` to include the default-icon factor (previously always skipped on the command line).
+- `diagnose(..., expect_pyinstaller=False)`: skips the "no PyInstaller archive marker" note; `build_all` uses it for the Inno Setup installer, so the report no longer shows that note for every installer.
+- Python 3.14 added to classifiers and the CI matrix.
+- CI/release workflows: GitHub Actions updated to Node 24 versions (checkout v7, setup-python v7, upload-artifact v7, download-artifact v8).
+- Removed unused imports in tests.
+
 ## 1.0.0 - 2026-10-24
 
 First release.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyi-doctor"
-version = "1.0.0"
+version = "1.1.0"
 description = "Build PyInstaller apps as portable exe + installer, then check startup, antivirus risk factors and bundled licenses."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -25,6 +25,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Build Tools",
     "Topic :: System :: Software Distribution",
 ]

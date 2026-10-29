@@ -11,7 +11,7 @@ Typical use::
     print(report.ok)
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 from .config import Project  # noqa: E402
 from .errors import BuildError, ConfigError, PyiDoctorError, ToolNotFoundError  # noqa: E402

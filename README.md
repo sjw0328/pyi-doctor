@@ -102,6 +102,7 @@ pyi-doctor build                        # full pipeline from pyproject.toml
 pyi-doctor build --onefile --no-defender
 pyi-doctor build --github-release v1.0.0 --github-repo me/myapp
 pyi-doctor diagnose dist/portable/MyApp/MyApp.exe   # score any exe
+pyi-doctor diagnose MyApp.exe --no-icon             # also count the default-icon factor
 pyi-doctor smoke dist/portable/MyApp/MyApp.exe -- --version
 pyi-doctor iss                          # write the Inno Setup script only
 pyi-doctor init --write                 # add [tool.pyi-doctor] to pyproject.toml
@@ -142,7 +143,7 @@ pyi-doctor does not obfuscate, encrypt or otherwise hide code from scanners. It 
 | release folder (zip + checksums) | 1.5 s |
 | **total** | **19.7 s** |
 
-Test suite: 138 tests (including 2 real PyInstaller builds) on Python 3.9, 3.11 and 3.13 on Linux. Windows-specific paths (version resource, Inno Setup compilation, Defender scan, error-dialog detection in the smoke test) run in the Windows CI jobs.
+Test suite: 140 tests (including 2 real PyInstaller builds) on Linux; CI runs the unit tests on Python 3.9–3.14 on Linux and Windows. Windows-specific paths (version resource, Inno Setup compilation, Defender scan, error-dialog detection in the smoke test) run in the Windows CI jobs.
 
 ## Known limitations
 

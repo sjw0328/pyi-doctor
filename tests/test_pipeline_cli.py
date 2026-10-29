@@ -3,6 +3,8 @@ import sys
 
 import pytest
 
+import pyi_doctor
+
 from pe_builder import build_pe
 from pyi_doctor import cli, pipeline, portable
 from pyi_doctor.errors import BuildError
@@ -122,7 +124,7 @@ def test_cli_version(capsys):
     with pytest.raises(SystemExit) as e:
         cli.main(["--version"])
     assert e.value.code == 0
-    assert "pyi-doctor 1.0.0" in capsys.readouterr().out
+    assert f"pyi-doctor {pyi_doctor.__version__}" in capsys.readouterr().out
 
 
 def test_cli_init(tmp_path, capsys):
@@ -145,6 +147,19 @@ def test_cli_diagnose(tmp_path, capsys):
     data = json.loads(capsys.readouterr().out)
     assert data[0]["score"] >= 30
     assert cli.main(["diagnose", str(tmp_path / "missing.exe")]) == 2
+
+
+def test_cli_diagnose_icon_flag(tmp_path, capsys):
+    exe = tmp_path / "a.exe"
+    exe.write_bytes(build_pe(cookie=True))
+
+    def keys(*extra):
+        assert cli.main(["diagnose", str(exe), "--no-defender", "--json", *extra]) == 0
+        return {f["key"] for f in json.loads(capsys.readouterr().out)[0]["factors"]}
+
+    assert "default_icon" not in keys()
+    assert "default_icon" in keys("--no-icon")
+    assert "default_icon" not in keys("--icon")
 
 
 def test_cli_iss(tmp_path, capsys, monkeypatch):

@@ -64,6 +64,7 @@ languages = ["english", "korean"]
 pyi-doctor build                        # pyproject.toml 기준 전체 실행
 pyi-doctor build --onefile --no-defender
 pyi-doctor diagnose MyApp.exe           # 아무 exe나 점수화
+pyi-doctor diagnose MyApp.exe --no-icon # 기본 아이콘 항목까지 포함
 pyi-doctor smoke MyApp.exe -- --version
 pyi-doctor iss                          # Inno Setup 스크립트만 생성
 pyi-doctor init --write
@@ -79,7 +80,7 @@ pyi-doctor는 코드를 난독화·암호화하거나 검사를 피하도록 숨
 
 `examples/hello`, Linux x86_64, Python 3.13, PyInstaller 6.22.3 기준(설치 프로그램 단계는 Windows 전용이라 제외): onedir 4.5초, onefile 12.2초, 라이선스·SBOM 0.8초, 스모크 테스트 0.6초, 진단 0.1초 미만, 릴리스 정리 1.5초, **합계 19.7초**.
 
-테스트: Linux에서 Python 3.9·3.11·3.13으로 138개(실제 PyInstaller 빌드 2개 포함) 실행. Windows 전용 경로(버전 정보, Inno Setup 컴파일, Defender 검사, 스모크 테스트의 오류 창 감지)는 Windows CI 작업에서 실행됩니다.
+테스트: Linux에서 140개(실제 PyInstaller 빌드 2개 포함) 실행, CI는 Linux·Windows에서 Python 3.9~3.14로 유닛 테스트를 실행합니다. Windows 전용 경로(버전 정보, Inno Setup 컴파일, Defender 검사, 스모크 테스트의 오류 창 감지)는 Windows CI 작업에서 실행됩니다.
 
 ## 알려진 한계
 

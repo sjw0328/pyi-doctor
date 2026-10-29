@@ -61,7 +61,7 @@ def cmd_diagnose(args: argparse.Namespace) -> int:
         if not p.is_file():
             print(f"{p}: not found", file=sys.stderr)
             return 2
-        results.append(diag_mod.diagnose(p, defender=not args.no_defender))
+        results.append(diag_mod.diagnose(p, defender=not args.no_defender, icon_configured=args.icon))
     if args.json:
         print(json.dumps([r.to_dict() for r in results], indent=2, ensure_ascii=False))
         return 0
@@ -141,6 +141,8 @@ def make_parser() -> argparse.ArgumentParser:
     d = sub.add_parser("diagnose", help="score executables for antivirus false-positive risk factors")
     d.add_argument("files", nargs="+")
     d.add_argument("--no-defender", action="store_true")
+    d.add_argument("--icon", action=argparse.BooleanOptionalAction, default=None,
+                   help="whether a custom icon was set (--no-icon adds the default-icon factor; omit to skip it)")
     d.add_argument("--json", action="store_true")
     d.set_defaults(func=cmd_diagnose)
 

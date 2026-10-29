@@ -94,6 +94,12 @@ def test_diagnose_not_pyinstaller_note(tmp_path):
     assert "stock_bootloader" not in {f.key for f in d.factors}
 
 
+def test_diagnose_installer_skips_marker_note(tmp_path):
+    exe = _write(tmp_path, build_pe(resource_types=[16]), name="setup.exe")
+    d = antivirus.diagnose(exe, defender=False, bootloader="n/a", expect_pyinstaller=False)
+    assert not any("PyInstaller archive" in n for n in d.notes)
+
+
 def test_defender_unavailable(tmp_path, monkeypatch):
     monkeypatch.setattr(antivirus, "find_mpcmdrun", lambda: None)
     assert antivirus.defender_scan(tmp_path / "x.exe").status == "unavailable"

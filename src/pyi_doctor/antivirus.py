@@ -183,11 +183,14 @@ def diagnose(
     icon_configured: Optional[bool] = None,
     defender: bool = True,
     bootloader: Optional[str] = None,
+    expect_pyinstaller: bool = True,
 ) -> Diagnosis:
     """Score ``exe`` for antivirus false-positive risk factors.
 
     ``icon_configured``: pass the project setting when known; ``None`` skips
     the icon factor (it cannot be told apart from the binary alone).
+    ``expect_pyinstaller``: set to ``False`` for files that are not PyInstaller
+    builds (e.g. the Inno Setup installer) to skip the missing-marker note.
     """
     exe = Path(exe)
     notes: List[str] = []
@@ -207,7 +210,7 @@ def diagnose(
             keys.append("no_version_info")
         if not info.signed:
             keys.append("unsigned")
-        if not info.pyinstaller_archive:
+        if not info.pyinstaller_archive and expect_pyinstaller:
             notes.append("no PyInstaller archive marker found; the file may not be a PyInstaller build")
     boot = bootloader if bootloader is not None else bootloader_status()
     if info is not None and info.pyinstaller_archive and boot == "stock":
