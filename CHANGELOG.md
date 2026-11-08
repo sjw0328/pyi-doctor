@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.0 - 2026-11-08
+
+- Version bump to publish the 1.1.0 changes to PyPI (the 1.1.0 release did not reach PyPI because its tag did not match the package version). No code changes.
+
 ## 1.1.0 - 2026-10-29
 
 - CLI: `pyi-doctor diagnose --icon / --no-icon` to include the default-icon factor (previously always skipped on the command line).
