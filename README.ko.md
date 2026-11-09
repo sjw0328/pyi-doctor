@@ -1,6 +1,18 @@
 # pyi-doctor
 
+[![PyPI](https://img.shields.io/pypi/v/pyi-doctor)](https://pypi.org/project/pyi-doctor/)
+[![Python](https://img.shields.io/pypi/pyversions/pyi-doctor)](https://pypi.org/project/pyi-doctor/)
+[![Downloads](https://static.pepy.tech/badge/pyi-doctor)](https://pepy.tech/project/pyi-doctor)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 [English](README.md)
+
+**내 PC에서는 잘 되던 PyInstaller exe가 다른 PC에서는 트로이목마로 잡힐 때, 왜 그런지 확인하는 도구입니다.**
+
+```bash
+pip install pyi-doctor
+pyi-doctor diagnose MyApp.exe
+```
 
 **PyInstaller 앱을 한 번의 호출로 포터블 exe와 설치 마법사로 빌드하고, 다른 PC에서 실행되는지·백신 오탐 위험 요인이 있는지·어떤 서드파티 라이선스를 포함하는지 확인하는 파이썬 라이브러리입니다.**
 
@@ -15,6 +27,10 @@ print(report.ok)
 ```
 
 결과물은 `dist/release/`에 모입니다: 포터블 zip, 단일 exe(선택), 설치 프로그램, SBOM, 라이선스 고지, SHA256 체크섬, 오탐 신고용 문안, 리포트.
+
+## 만든 이유
+
+한국의 초등학생 개발자가 직접 만든 PyInstaller 앱이 계속 백신에 오탐되는 것이 불편해서, AI 코딩 도구의 도움을 받아 만들었습니다.
 
 ## 하는 일
 
@@ -98,4 +114,4 @@ pyi-doctor는 독립 프로젝트이며 PyInstaller 프로젝트, Jordan Russell
 
 ## 라이선스
 
-MIT © 2026 서주원 (OMEGA SYSTEMS) · 문의: seodes105@gmail.com
+MIT © 2026 서주원 (Juwon Seo, OMEGA SYSTEMS) · 문의: seodes105@gmail.com

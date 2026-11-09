@@ -1,10 +1,20 @@
 # pyi-doctor
 
+[![PyPI](https://img.shields.io/pypi/v/pyi-doctor)](https://pypi.org/project/pyi-doctor/)
+[![Python](https://img.shields.io/pypi/pyversions/pyi-doctor)](https://pypi.org/project/pyi-doctor/)
+[![Downloads](https://static.pepy.tech/badge/pyi-doctor)](https://pepy.tech/project/pyi-doctor)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 [한국어 문서 (Korean)](README.ko.md)
 
-**Build a PyInstaller app as a portable exe and a setup wizard in one call, then check whether it starts outside your machine, which antivirus false-positive risk factors it carries, and which third-party licenses it bundles.**
+**Your PyInstaller exe works on your PC, then Windows Defender calls it a trojan on someone else's. pyi-doctor checks why.**
 
-Tools such as briefcase and pyship focus on shipping an app. pyi-doctor focuses on the problems that tend to show up after shipping a PyInstaller build: "it works on my PC only", "Windows Defender calls it a trojan", and "which licenses am I redistributing?".
+In one call it builds a portable exe and a setup wizard, test-starts the build outside your Python environment, scores common antivirus false-positive risk factors, and lists the third-party licenses you are redistributing.
+
+```bash
+pip install pyi-doctor
+pyi-doctor diagnose MyApp.exe
+```
 
 ```python
 from pyi_doctor import Project, build_all
@@ -38,6 +48,12 @@ dist/release/
 | Release folder | Collects the files, writes `SHA256SUMS.txt`, a report and false-positive submission notes. Optional upload to a GitHub release through the GitHub CLI (`gh`). |
 
 Only the onedir build is required to succeed; every other step records its own status, so a missing tool (for example Inno Setup) does not stop the rest.
+
+Tools such as briefcase and pyship focus on shipping an app. pyi-doctor focuses on the problems that tend to show up after shipping a PyInstaller build: "it works on my PC only", "Windows Defender calls it a trojan", and "which licenses am I redistributing?".
+
+## Why this exists
+
+pyi-doctor was built by an elementary school student in Korea, with the help of AI coding tools, after his own PyInstaller apps kept getting flagged by antivirus software.
 
 ## Install
 
@@ -161,4 +177,4 @@ pyi-doctor is an independent project and is not affiliated with or endorsed by t
 
 ## License
 
-MIT © 2026 서주원 (OMEGA SYSTEMS) · Contact: seodes105@gmail.com
+MIT © 2026 Juwon Seo (서주원, OMEGA SYSTEMS) · Contact: seodes105@gmail.com
