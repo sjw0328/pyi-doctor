@@ -114,4 +114,4 @@ pyi-doctor는 독립 프로젝트이며 PyInstaller 프로젝트, Jordan Russell
 
 ## 라이선스
 
-MIT © 2026 서주원 (Juwon Seo, OMEGA SYSTEMS) · 문의: seodes105@gmail.com
+MIT © 2026 [서주원](https://github.com/sjw0328) (Juwon Seo, OMEGA SYSTEMS) · 문의: seodes105@gmail.com
