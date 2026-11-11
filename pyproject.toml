@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "서주원 (OMEGA SYSTEMS)", email = "seodes105@gmail.com" }]
+authors = [{ name = "Juwon Seo (서주원, OMEGA SYSTEMS)", email = "seodes105@gmail.com" }]
 keywords = ["pyinstaller", "installer", "inno-setup", "antivirus", "false-positive", "sbom", "windows", "packaging"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -40,6 +40,10 @@ test = ["pytest>=7"]
 [project.urls]
 Homepage = "https://github.com/sjw0328/pyi-doctor"
 Issues = "https://github.com/sjw0328/pyi-doctor/issues"
+Source = "https://github.com/sjw0328/pyi-doctor"
+Changelog = "https://github.com/sjw0328/pyi-doctor/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/sjw0328/pyi-doctor#readme"
+Author = "https://github.com/sjw0328"
 
 [project.scripts]
 pyi-doctor = "pyi_doctor.cli:main"

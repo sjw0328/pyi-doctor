@@ -177,4 +177,4 @@ pyi-doctor is an independent project and is not affiliated with or endorsed by t
 
 ## License
 
-MIT © 2026 Juwon Seo (서주원, OMEGA SYSTEMS) · Contact: seodes105@gmail.com
+MIT © 2026 [Juwon Seo](https://github.com/sjw0328) (서주원, OMEGA SYSTEMS) · Contact: seodes105@gmail.com
