@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install -e ".[test]"
-      - run: python -m pytest -m "not integration"
+      - run: python -m pytest -m "not integration and not cross"
 
   integration:
     name: integration (${{ matrix.os }})
@@ -57,6 +57,60 @@ jobs:
           name: example-release-${{ matrix.os }}
           path: examples/hello/dist/release/
           if-no-files-found: warn
+
+  cross-build:
+    name: cross build (${{ matrix.os }} -> windows exe)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: python -m pip install -e ".[test]"
+      - run: python -m pytest -m cross -v
+      - name: Cross-build the example app
+        working-directory: examples/hello
+        run: pyi-doctor build --target win --no-defender
+      - uses: actions/upload-artifact@v7
+        if: runner.os == 'Linux'
+        with:
+          name: cross-dist
+          path: examples/hello/dist/
+          if-no-files-found: error
+
+  cross-smoke:
+    name: cross build smoke test (windows)
+    needs: cross-build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: cross-dist
+          path: dist
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: python -m pip install -e .
+      - name: Start the cross-built exes
+        shell: pwsh
+        run: |
+          foreach ($exe in @(Get-ChildItem dist\portable\*\*.exe) + @(Get-ChildItem dist\onefile\*.exe)) {
+            pyi-doctor smoke $exe.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Compile the relative-path Inno Setup script
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc dist\Hello.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem dist\installer
 
   package:
     runs-on: ubuntu-latest

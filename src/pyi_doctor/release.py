@@ -41,11 +41,12 @@ def zip_folder(folder: Path, dest: Path) -> Path:
     return dest
 
 
-def collect(project: Project, artifacts: Iterable[Artifact], extra_files: Iterable[Path] = ()) -> List[Path]:
+def collect(project: Project, artifacts: Iterable[Artifact], extra_files: Iterable[Path] = (), *,
+            tag: Optional[str] = None) -> List[Path]:
     """Copy release files to ``<output>/release`` and write ``SHA256SUMS.txt``."""
     rel = project.release_path
     rel.mkdir(parents=True, exist_ok=True)
-    tag = platform_tag()
+    tag = tag or platform_tag()
     files: List[Path] = []
     for a in artifacts:
         if a.kind == "onedir" and a.folder:

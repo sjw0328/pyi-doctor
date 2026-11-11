@@ -5,6 +5,10 @@ test -> installer -> antivirus diagnosis -> release folder + report.
 
 Only the onedir build is fatal; every later step records its own status so
 one missing tool (for example Inno Setup) does not stop the rest.
+
+``target="win"`` on Linux/macOS uses the experimental Windows cross build
+(:mod:`pyi_doctor.cross`): smoke testing and the installer compile are left
+to a Windows machine; the Inno Setup script is written with relative paths.
 """
 
 from __future__ import annotations
@@ -19,7 +23,7 @@ from . import installer as inst_mod
 from . import licenses as lic_mod
 from . import portable, release, sbom, smoke
 from .config import Project
-from .errors import PyiDoctorError, ToolNotFoundError
+from .errors import CrossBuildUnsupported, PyiDoctorError, ToolNotFoundError
 from .portable import Artifact
 from .report import Report, Step, submission_notes
 
@@ -63,11 +67,23 @@ def build_all(
     release_dir: bool = True,
     github_tag: Optional[str] = None,
     github_repo: Optional[str] = None,
+    target: Optional[str] = None,
+    requirements: Optional[List[str]] = None,
+    python_version: Optional[str] = None,
     log: Optional[Logger] = None,
 ) -> Report:
-    """Run every step and return a :class:`Report` (also written to ``<output>/release``)."""
+    """Run every step and return a :class:`Report` (also written to ``<output>/release``).
+
+    ``target``: ``None``/``"native"`` builds for the current OS; ``"win"`` builds
+    a Windows x64 exe (cross build when not running on Windows, experimental).
+    """
     say: Logger = log or (lambda msg: None)
+    if target not in (None, "native", "win"):
+        raise PyiDoctorError(f"unknown target {target!r}; use 'native' or 'win'")
+    cross = target == "win" and sys.platform != "win32"
     report = Report(project=_project_dict(project))
+    if cross:
+        report.project["target"] = "windows-x64 (cross build, experimental)"
     artifacts: List[Artifact] = []
     want_onefile = project.onefile if onefile is None else onefile
 
@@ -78,27 +94,42 @@ def build_all(
         return st
 
     # 1. portable onedir (fatal)
-    say(f"Building {project.name} {project.version} (onedir) ...")
+    say(f"Building {project.name} {project.version} (onedir{', Windows cross build' if cross else ''}) ...")
     onedir: Optional[Artifact] = None
     error: Optional[PyiDoctorError] = None
+    xb = None  # prepared cross build
     with _Timer() as t:
         try:
-            onedir = portable.build(project, onefile=False)
+            if cross:
+                from .cross import prepare_windows
+
+                xb = prepare_windows(project, requirements=requirements, python_version=python_version, log=say)
+                onedir = xb.build(onefile=False)
+            else:
+                onedir = portable.build(project, onefile=False)
         except PyiDoctorError as exc:
             error = exc
     if onedir is None:
-        record("portable", "failed", str(error).splitlines()[0], t.seconds, log_tail=getattr(error, "log_tail", ""))
-        _finish(project, report, artifacts, [], release_dir, say)
+        extra = {"log_tail": getattr(error, "log_tail", "")}
+        if isinstance(error, CrossBuildUnsupported):
+            extra["reasons"] = error.reasons
+            for r in error.reasons:
+                say(f"          - {r}")
+        record("portable", "failed", str(error).splitlines()[0], t.seconds, **extra)
+        _finish(project, report, artifacts, [], release_dir, say, cross=cross)
         return report
     artifacts.append(onedir)
-    record("portable", "ok", f"{onedir.folder}", t.seconds)
+    if xb is not None:
+        record("portable", "ok", f"{onedir.folder}", t.seconds, cross=xb.info())
+    else:
+        record("portable", "ok", f"{onedir.folder}", t.seconds)
 
     # 2. onefile
     if want_onefile:
         say("Building onefile ...")
         with _Timer() as t:
             try:
-                one = portable.build(project, onefile=True)
+                one = xb.build(onefile=True) if xb is not None else portable.build(project, onefile=True)
                 artifacts.append(one)
                 status, msg = "ok", str(one.path)
             except PyiDoctorError as exc:
@@ -113,11 +144,15 @@ def build_all(
     packages = []
     if licenses or sbom_file:
         with _Timer() as t:
-            packages, mode = lic_mod.collect(project.work_path / "onedir")
+            if xb is not None:
+                packages, mode = xb.licenses(), "wheels"
+            else:
+                packages, mode = lic_mod.collect(project.work_path / "onedir")
         if licenses:
-            notices = lic_mod.write(project.work_path / "THIRD_PARTY_LICENSES.txt", packages, app_name=project.name, mode=mode)
+            notices = lic_mod.write(project.work_path / "THIRD_PARTY_LICENSES.txt", packages, app_name=project.name, mode=mode,
+                                    python_version=xb.python_version if xb is not None else None)
             unknown = [p.name for p in packages if p.license == "UNKNOWN"]
-            status = "warning" if unknown or mode != "toc" else "ok"
+            status = "warning" if unknown or mode not in ("toc", "wheels") else "ok"
             msg = f"{len(packages)} packages ({mode} mode)"
             if unknown:
                 msg += f"; license unknown: {', '.join(unknown[:5])}" + (" ..." if len(unknown) > 5 else "")
@@ -143,7 +178,9 @@ def build_all(
         record("sbom", "skipped", "disabled", 0.0)
 
     # 5. smoke test
-    if smoke_test:
+    if smoke_test and cross:
+        record("smoke", "skipped", "cross build: start the exe on Windows (see the example GitHub Actions workflow)", 0.0)
+    elif smoke_test:
         results = []
         with _Timer() as t:
             for a in artifacts:
@@ -161,7 +198,12 @@ def build_all(
         record("smoke", "skipped", "disabled", 0.0)
 
     # 6. installer
-    if installer:
+    if installer and cross:
+        with _Timer() as t:
+            iss = inst_mod.write_iss_relative(project, onedir.folder)
+        record("installer", "skipped", f"Inno Setup runs on Windows; script with relative paths written to {iss}",
+               t.seconds, iss=str(iss))
+    elif installer:
         with _Timer() as t:
             iscc = inst_mod.find_iscc()
             iss = inst_mod.write_iss(project, onedir.folder, iscc=iscc)
@@ -184,7 +226,7 @@ def build_all(
     if diagnose:
         results = []
         with _Timer() as t:
-            boot = diag_mod.bootloader_status()
+            boot = "stock" if cross else diag_mod.bootloader_status()
             for a in artifacts:
                 say(f"Diagnosing {a.path.name} ...")
                 icon = (project.icon is not None) if a.kind != "installer" else None
@@ -201,7 +243,7 @@ def build_all(
     else:
         record("diagnose", "skipped", "disabled", 0.0)
 
-    files = _finish(project, report, artifacts, extra_release, release_dir, say)
+    files = _finish(project, report, artifacts, extra_release, release_dir, say, cross=cross)
 
     # 8. GitHub upload (opt-in)
     if github_tag:
@@ -217,12 +259,13 @@ def build_all(
     return report
 
 
-def _finish(project: Project, report: Report, artifacts: List[Artifact], extra: List[Path], release_dir: bool, say: Logger) -> List[Path]:
+def _finish(project: Project, report: Report, artifacts: List[Artifact], extra: List[Path], release_dir: bool, say: Logger,
+            cross: bool = False) -> List[Path]:
     report.artifacts = [a.to_dict() for a in artifacts]
     files: List[Path] = []
     if release_dir and artifacts:
         with _Timer() as t:
-            files = release.collect(project, artifacts, extra)
+            files = release.collect(project, artifacts, extra, tag="win64" if cross else None)
             notes = project.release_path / "av-submission-notes.txt"
             exe_files = [f for f in files if f.suffix.lower() in (".exe", ".zip", "")]
             notes.write_text(submission_notes(report.project, release.file_entries(exe_files), report.environment), encoding="utf-8")

@@ -28,3 +28,15 @@ class BuildError(PyiDoctorError):
 
 class ToolNotFoundError(PyiDoctorError):
     """A required external tool could not be located."""
+
+
+class CrossBuildUnsupported(PyiDoctorError):
+    """The app needs something the Linux/macOS -> Windows build cannot provide.
+
+    ``reasons`` lists every problem found; build on Windows instead.
+    """
+
+    def __init__(self, reasons):
+        self.reasons = list(reasons)
+        lines = "\n".join(f"  - {r}" for r in self.reasons)
+        super().__init__(f"cannot cross-build for Windows; build on Windows instead:\n{lines}")

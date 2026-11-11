@@ -11,10 +11,10 @@ Typical use::
     print(report.ok)
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 from .config import Project  # noqa: E402
-from .errors import BuildError, ConfigError, PyiDoctorError, ToolNotFoundError  # noqa: E402
+from .errors import BuildError, ConfigError, CrossBuildUnsupported, PyiDoctorError, ToolNotFoundError  # noqa: E402
 
 __all__ = [
     "__version__",
@@ -22,6 +22,7 @@ __all__ = [
     "build_all",
     "build_portable",
     "build_installer",
+    "build_windows",
     "diagnose",
     "smoke_test",
     "collect_licenses",
@@ -29,6 +30,7 @@ __all__ = [
     "ConfigError",
     "BuildError",
     "ToolNotFoundError",
+    "CrossBuildUnsupported",
 ]
 
 
@@ -44,6 +46,13 @@ def build_portable(project, *, onefile: bool = False):
     from .portable import build
 
     return build(project, onefile=onefile)
+
+
+def build_windows(project, *, onefile: bool = False, **kwargs):
+    """Experimental: build a Windows x64 exe on Linux/macOS. See :func:`pyi_doctor.cross.build_windows`."""
+    from .cross import build_windows as _impl
+
+    return _impl(project, onefile=onefile, **kwargs)
 
 
 def build_installer(project, onedir, **kwargs):

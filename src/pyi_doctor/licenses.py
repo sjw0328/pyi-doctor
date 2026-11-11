@@ -232,8 +232,9 @@ def python_license_text() -> str:
     return "Python Software Foundation License Version 2. Full text: https://docs.python.org/3/license.html"
 
 
-def render(packages: List[PackageLicense], *, app_name: str, mode: str = "toc") -> str:
+def render(packages: List[PackageLicense], *, app_name: str, mode: str = "toc", python_version: Optional[str] = None) -> str:
     v = sys.version_info
+    py = python_version or f"{v.major}.{v.minor}.{v.micro}"
     sep = "=" * 78
     parts = [
         f"Third-party software notices for {app_name}",
@@ -241,7 +242,7 @@ def render(packages: List[PackageLicense], *, app_name: str, mode: str = "toc") 
         "Metadata can be incomplete; review this file before distribution.",
         "",
         sep,
-        f"Python {v.major}.{v.minor}.{v.micro}",
+        f"Python {py}",
         sep,
         python_license_text(),
         "",
@@ -263,9 +264,10 @@ def render(packages: List[PackageLicense], *, app_name: str, mode: str = "toc") 
     return "\n".join(parts).rstrip() + "\n"
 
 
-def write(path: Path, packages: List[PackageLicense], *, app_name: str, mode: str) -> Path:
+def write(path: Path, packages: List[PackageLicense], *, app_name: str, mode: str,
+          python_version: Optional[str] = None) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render(packages, app_name=app_name, mode=mode), encoding="utf-8")
+    path.write_text(render(packages, app_name=app_name, mode=mode, python_version=python_version), encoding="utf-8")
     return path
 
 
