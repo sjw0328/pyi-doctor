@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0 - 2026-11-11
+
+- Experimental: build a PyInstaller-format Windows x64 exe on Linux/macOS without Wine: `pyi-doctor build --target win`, `build_windows()`, `build_all(..., target="win")`. Uses the python.org Windows embeddable package, the `win_amd64` PyInstaller wheel (bootloader) and `win_amd64` / pure-Python wheels; modules via PyInstaller's modulegraph, DLLs via `pefile`, hooks answered from the unpacked files; icon, version information and manifest written as PE resources in pure Python. Stops with `CrossBuildUnsupported` (list of reasons) when the app is outside the supported scope.
+- Writes an Inno Setup script with relative paths (`dist/<name>.iss`) for compiling on Windows.
+- New setting `requirements` (defaults to `[project].dependencies`); CLI `-r/--requirements`, `--python-version`.
+- Example workflow `examples/github-actions/cross-build-windows.yml` (build on Linux, start test on Windows); CI runs the same.
+- New dependency: `pefile`.
+
 ## 1.2.0 - 2026-11-08
 
 - Version bump to publish the 1.1.0 changes to PyPI (the 1.1.0 release did not reach PyPI because its tag did not match the package version). No code changes.

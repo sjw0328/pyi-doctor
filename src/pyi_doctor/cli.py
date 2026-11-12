@@ -37,8 +37,14 @@ def cmd_build(args: argparse.Namespace) -> int:
     from .pipeline import build_all
 
     project = _load_project(args)
+    reqs = None
+    if args.requirements:
+        reqs = list(project.requirements) + [f"-r {f}" for f in args.requirements]
     report = build_all(
         project,
+        target=args.target,
+        requirements=reqs,
+        python_version=args.python_version,
         onefile=True if args.onefile else None,
         installer=not args.no_installer,
         smoke_test=not args.no_smoke,
@@ -135,6 +141,12 @@ def make_parser() -> argparse.ArgumentParser:
     b.add_argument("--no-sbom", action="store_true")
     b.add_argument("--github-release", metavar="TAG", help="upload release files to this GitHub release (uses gh)")
     b.add_argument("--github-repo", metavar="OWNER/REPO")
+    b.add_argument("--target", choices=["native", "win"], default="native",
+                   help="'win' builds a Windows x64 exe from Linux/macOS (experimental, see README)")
+    b.add_argument("-r", "--requirements", action="append", metavar="FILE",
+                   help="requirements file for --target win (repeatable; added to 'requirements' from config)")
+    b.add_argument("--python-version", metavar="X.Y.Z",
+                   help="--target win: embeddable Python release to use (must match this Python's X.Y)")
     b.add_argument("-q", "--quiet", action="store_true")
     b.set_defaults(func=cmd_build)
 

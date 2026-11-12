@@ -63,6 +63,44 @@ pip install pyi-doctor
 
 Requirements: Python 3.9+, PyInstaller 6+ (installed as a dependency). The installer step needs Windows and [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer (not bundled; set `PYI_DOCTOR_ISCC` if it is not in the default location). The GitHub upload needs the [GitHub CLI](https://cli.github.com/).
 
+## Build the Windows exe on Linux or macOS (experimental)
+
+PyInstaller does not cross-compile, so a Windows exe normally needs a Windows machine (or Wine). `pyi-doctor build --target win` builds a PyInstaller-format Windows exe on Linux or macOS without Wine:
+
+```bash
+pip install pyi-doctor
+pyi-doctor build --target win -r requirements.txt
+```
+
+```python
+from pyi_doctor import Project, build_windows
+
+project = Project(entry="main.py", name="MyApp", version="1.0.0", requirements=["requests"])
+onedir = build_windows(project)                  # dist/portable/MyApp/MyApp.exe (+ _internal)
+single = build_windows(project, onefile=True)    # dist/onefile/MyApp.exe
+```
+
+You get the onedir folder, an optional single-file exe, and an Inno Setup script with relative paths (`dist/MyApp.iss`) that compiles on Windows. For comparison, [pynsist](https://pynsist.readthedocs.io/en/latest/faq.html) also builds on Linux/macOS but produces an installer only.
+
+How it works:
+
+1. Downloads the python.org Windows embeddable package (`python3XY.dll`, stdlib) for the same Python minor version as the build machine, the `win_amd64` PyInstaller wheel of the installed PyInstaller version (Windows bootloader), and `win_amd64` / pure-Python wheels of your requirements (`pip download`, with Windows environment markers). Cached in `~/.cache/pyi-doctor` (`PYI_DOCTOR_CACHE`).
+2. Finds modules with PyInstaller's modulegraph against those folders, and DLLs used by `.pyd` files from their PE import tables (`pefile`). PyInstaller hooks are run with replacements that read the unpacked files instead of importing the package.
+3. Writes PYZ, `base_library.zip` and the CArchive in PyInstaller's format, adds icon, version information and manifest to the bootloader as PE resources (pure Python), and sets the PE checksum.
+4. Runs the antivirus risk-factor diagnosis on the result. It does not start the exe; [examples/github-actions/cross-build-windows.yml](examples/github-actions/cross-build-windows.yml) builds on `ubuntu-latest` and starts the exe on `windows-latest`.
+
+Scope. The build stops before writing files, with a list of reasons, when any of these apply:
+
+- target other than 64-bit Windows (x64); no 32-bit or ARM64
+- a requirement without a pure-Python or `win_amd64` wheel for your Python version on PyPI
+- a PyInstaller hook that needs to import the package, defines `hook(hook_api)`, or calls a helper that cannot be answered from files
+- tkinter (and so customtkinter): the embeddable package has no Tcl/Tk
+- a DLL needed by a `.pyd` that is neither in the wheels nor a known Windows system DLL
+
+Checked on Linux with Python 3.13 (the end-to-end test also passes on 3.12): stdlib (ssl, sqlite3, ctypes), requests, PyYAML (C extension), click, rich, tqdm, colorama, charset-normalizer (mypyc), Pillow, pydantic 2 (Rust extension), psutil, orjson and pywin32 built and ran under Wine 9 in onedir and onefile mode; numpy built, but could not be run under Wine 9. Other packages are untested. Results on real Windows can differ, so start the exe on Windows before distributing it.
+
+Settings: `requirements` (defaults to `[project].dependencies`), `-r FILE`, `--python-version X.Y.Z` (must match the build Python's X.Y). `pyinstaller_args` and PNG icons are not supported by the cross build.
+
 ## Configuration
 
 Add a table to your `pyproject.toml` (`pyi-doctor init --write` adds a template):
@@ -107,6 +145,7 @@ languages = ["english", "korean"]
 | `privileges` | `lowest` | `lowest` (per-user, can be raised in the wizard) or `admin` |
 | `languages` | `["english", "korean"]` | Installer languages available in your Inno Setup |
 | `smoke_args`, `smoke_timeout` | `[]`, `15` | Arguments and seconds for the smoke test |
+| `requirements` | `[project].dependencies` | `--target win` only: requirement strings or `"-r file.txt"` for the Windows wheels |
 | `output_dir`, `work_dir` | `dist`, `build` | Output folders |
 
 </details>
@@ -117,6 +156,7 @@ languages = ["english", "korean"]
 pyi-doctor build                        # full pipeline from pyproject.toml
 pyi-doctor build --onefile --no-defender
 pyi-doctor build --github-release v1.0.0 --github-repo me/myapp
+pyi-doctor build --target win -r requirements.txt   # Windows exe from Linux/macOS (experimental)
 pyi-doctor diagnose dist/portable/MyApp/MyApp.exe   # score any exe
 pyi-doctor diagnose MyApp.exe --no-icon             # also count the default-icon factor
 pyi-doctor smoke dist/portable/MyApp/MyApp.exe -- --version
@@ -137,7 +177,7 @@ setup = build_installer(project, onedir.folder)      # Windows + Inno Setup
 packages, mode = collect_licenses(project.work_path / "onedir")
 ```
 
-`build_all(project, onefile=..., installer=..., smoke_test=..., diagnose=..., defender=..., licenses=..., sbom_file=..., github_tag=...)` runs everything and returns a `Report` with `.ok`, `.steps`, `.to_markdown()` and `.to_json()`.
+`build_all(project, onefile=..., installer=..., smoke_test=..., diagnose=..., defender=..., licenses=..., sbom_file=..., github_tag=..., target="win")` runs everything and returns a `Report` with `.ok`, `.steps`, `.to_markdown()` and `.to_json()`.
 
 ## About the antivirus score
 
@@ -159,7 +199,7 @@ pyi-doctor does not obfuscate, encrypt or otherwise hide code from scanners. It 
 | release folder (zip + checksums) | 1.5 s |
 | **total** | **19.7 s** |
 
-Test suite: 140 tests (including 2 real PyInstaller builds) on Linux; CI runs the unit tests on Python 3.9–3.14 on Linux and Windows. Windows-specific paths (version resource, Inno Setup compilation, Defender scan, error-dialog detection in the smoke test) run in the Windows CI jobs.
+Test suite: 167 tests (including 2 real PyInstaller builds and 2 cross builds) on Linux; CI runs the unit tests on Python 3.9–3.14 on Linux and Windows, and the cross build on Linux with a start test on Windows. Windows-specific paths (version resource, Inno Setup compilation, Defender scan, error-dialog detection in the smoke test) run in the Windows CI jobs.
 
 ## Known limitations
 
@@ -168,6 +208,7 @@ Test suite: 140 tests (including 2 real PyInstaller builds) on Linux; CI runs th
 - The bootloader check compares the installed PyInstaller bootloader with the hashes recorded in its wheel. It describes the PyInstaller in the current environment, not an exe built elsewhere.
 - License notices come from package metadata, which can be missing or wrong; packages loaded dynamically may be missed. Review the generated file.
 - Only PyInstaller is supported (no Nuitka / cx_Freeze). No code signing and no auto-update.
+- The Windows cross build (`--target win`) is experimental: it covers only the scope listed above, is not checked against every PyInstaller hook, and does not start the exe. Downloads from python.org and PyPI are not signature-checked beyond HTTPS.
 
 ## Disclaimer
 

@@ -1,0 +1,78 @@
+# Example: build the Windows exe on Linux with pyi-doctor, then start it on a
+# real Windows runner before you publish it.
+#
+# Copy to .github/workflows/ in your app's repository. Your app needs a
+# [tool.pyi-doctor] table in pyproject.toml (pyi-doctor init --write) and its
+# dependencies in [project].dependencies, `requirements` or -r FILE.
+#
+# The cross build is experimental and provided AS IS. Use the files from the
+# "windows-smoke" job only if that job passed.
+
+name: Windows exe (cross build)
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"   # the exe uses this Python minor version
+      - run: python -m pip install pyi-doctor
+      - name: Cross-build Windows exe
+        run: pyi-doctor build --target win --no-defender
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-dist
+          path: dist/
+          if-no-files-found: error
+
+  windows-smoke:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-dist
+          path: dist
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: python -m pip install pyi-doctor
+      - name: Start each exe outside any Python environment
+        shell: pwsh
+        run: |
+          $exes = @(Get-ChildItem dist\portable\*\*.exe) + @(Get-ChildItem dist\onefile\*.exe -ErrorAction SilentlyContinue)
+          if ($exes.Count -eq 0) { throw "no exe found in dist/" }
+          foreach ($exe in $exes) {
+            Write-Host "== $($exe.FullName)"
+            pyi-doctor smoke $exe.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Microsoft Defender check (risk factors + local scan)
+        shell: pwsh
+        run: |
+          foreach ($exe in @(Get-ChildItem dist\portable\*\*.exe)) { pyi-doctor diagnose $exe.FullName }
+      - name: Compile the installer (optional)
+        shell: pwsh
+        run: |
+          $iss = Get-ChildItem dist\*.iss | Select-Object -First 1
+          if (-not $iss) { Write-Host "no .iss script"; exit 0 }
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc $iss.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-release
+          path: |
+            dist/release/
+            dist/installer/

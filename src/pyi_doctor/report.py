@@ -68,6 +68,10 @@ class Report:
             f"- Result: {'all steps completed' if self.ok else 'one or more steps failed'}",
             f"- Environment: {self.environment.get('platform')}, Python {self.environment.get('python')}, "
             f"PyInstaller {self.environment.get('pyinstaller')}, pyi-doctor {__version__}",
+        ]
+        if p.get("target"):
+            lines.append(f"- Target: {p['target']}")
+        lines += [
             "",
             "## Steps",
             "",
@@ -89,6 +93,19 @@ class Report:
                     lines.append(f"- [{f['weight']}] {f['label']}: {f['advice']}")
                 for n in r.get("notes", []):
                     lines.append(f"- note: {n}")
+        port = self.step("portable")
+        if port and port.data.get("reasons"):
+            lines += ["", "## Cross build stopped", "", "Build these on Windows instead:", ""]
+            lines += [f"- {r}" for r in port.data["reasons"]]
+        xinfo = port.data.get("cross") if port else None
+        if xinfo:
+            lines += ["", "## Cross build (experimental)", ""]
+            lines.append(f"- Windows embeddable Python {xinfo.get('python')}, PyInstaller {xinfo.get('pyinstaller')} "
+                         f"Windows bootloader")
+            lines.append(f"- Bundled distributions: {', '.join(xinfo.get('distributions') or []) or '(none)'}")
+            lines.append("- Not started on Windows by this build; run it on Windows before distributing.")
+            for w in xinfo.get("warnings") or []:
+                lines.append(f"- warning: {w}")
         smoke = self.step("smoke")
         if smoke and smoke.data.get("results"):
             lines += ["", "## Smoke test", ""]

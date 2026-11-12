@@ -99,6 +99,7 @@ class Project:
     privileges: str = "lowest"
     languages: List[str] = field(default_factory=lambda: ["english", "korean"])
     smoke_args: List[str] = field(default_factory=list)
+    requirements: List[str] = field(default_factory=list)  # used by the Windows cross build
     smoke_timeout: float = 15.0
     output_dir: str = "dist"
     work_dir: str = "build"
@@ -236,6 +237,8 @@ class Project:
         for key in ("name", "version", "description"):
             if key not in tool and isinstance(proj.get(key), str):
                 tool[key] = proj[key]
+        if "requirements" not in tool and isinstance(proj.get("dependencies"), list):
+            tool["requirements"] = list(proj["dependencies"])
         if "publisher" not in tool:
             authors = proj.get("authors") or []
             if authors and isinstance(authors[0], dict) and authors[0].get("name"):
@@ -273,6 +276,7 @@ onefile = false              # true = also build a single-file exe
 # license_file = "LICENSE"   # shown in the installer
 # add_data = ["assets=assets"]
 # hidden_imports = []
+# requirements = ["requests"]  # cross build only; defaults to [project] dependencies
 languages = ["english", "korean"]
 """
 
