@@ -197,7 +197,9 @@ def test_pth_dirs_case_insensitive(tmp_path):
     (site_dir / "win32" / "lib").mkdir(parents=True)
     (site_dir / "Pythonwin").mkdir()
     (site_dir / "pywin32.pth").write_text("# c\r\nwin32\r\nwin32\\lib\r\npythonwin\r\nimport x\r\nmissing\r\n")
-    assert [p.relative_to(site_dir.resolve()).as_posix() for p in _pth_dirs(site_dir)] == ["win32", "win32/lib", "Pythonwin"]
+    # the file system decides the spelling of a case-mismatched entry (Windows keeps the .pth spelling)
+    got = [p.relative_to(site_dir.resolve()).as_posix().lower() for p in _pth_dirs(site_dir)]
+    assert got == ["win32", "win32/lib", "pythonwin"]
 
 
 def test_windows_builtins(tmp_path):
