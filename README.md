@@ -53,7 +53,7 @@ Tools such as briefcase and pyship focus on shipping an app. pyi-doctor focuses 
 
 ## Why this exists
 
-pyi-doctor was built by an elementary school student in Korea, with the help of AI coding tools, after his own PyInstaller apps kept getting flagged by antivirus software.
+pyi-doctor was built by a student developer in Korea, with the help of AI coding tools, after his own PyInstaller apps kept getting flagged by antivirus software.
 
 ## Install
 
