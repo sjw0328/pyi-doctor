@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyi-doctor"
-version = "1.3.0"
+version = "1.4.0"
 description = "Build PyInstaller apps as portable exe + installer (Windows exe also from Linux/macOS, experimental), then check startup, antivirus risk factors and bundled licenses."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -48,6 +48,9 @@ Author = "https://github.com/sjw0328"
 
 [project.scripts]
 pyi-doctor = "pyi_doctor.cli:main"
+
+[project.gui-scripts]
+pyi-doctor-gui = "pyi_doctor.gui:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

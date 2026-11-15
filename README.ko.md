@@ -98,6 +98,14 @@ languages = ["english", "korean"]
 
 `app_id`를 비워 두면 publisher와 name으로 GUID를 만듭니다. 둘 중 하나를 바꾸면 GUID도 바뀌어 기존 설치본을 업그레이드로 인식하지 못하므로, 첫 배포 전에 고정값을 넣는 것을 권장합니다. 전체 설정 목록은 [README.md](README.md#configuration)에 있습니다.
 
+## 데스크톱 창 (GUI)
+
+```bash
+pyi-doctor gui        # 또는 pyi-doctor-gui, python -m pyi_doctor.gui
+```
+
+tkinter로 만든 창이며 탭이 두 개입니다. **Build** 탭에서는 진입 스크립트를 고르거나 `pyproject.toml`을 불러온 뒤 이름·버전·배포자·아이콘을 입력하고 실행할 단계를 체크해 *Build*를 누릅니다. 단계별 로그가 표시되고, *Open output folder*로 결과 폴더를 열 수 있습니다. **Diagnose** 탭에서는 `.exe`를 골라 위험 요인을 확인합니다. 명령줄과 같은 `build_all()` / `diagnose()`를 실행합니다. python.org의 Windows·macOS 설치본에는 tkinter가 포함되어 있고, Debian/Ubuntu에서는 `python3-tk` 설치가 필요합니다.
+
 ## 명령줄
 
 ```bash
@@ -109,6 +117,7 @@ pyi-doctor diagnose MyApp.exe --no-icon # 기본 아이콘 항목까지 포함
 pyi-doctor smoke MyApp.exe -- --version
 pyi-doctor iss                          # Inno Setup 스크립트만 생성
 pyi-doctor init --write
+pyi-doctor gui                          # 데스크톱 창 열기
 ```
 
 ## 백신 점수에 대해

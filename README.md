@@ -150,6 +150,14 @@ languages = ["english", "korean"]
 
 </details>
 
+## Desktop window (GUI)
+
+```bash
+pyi-doctor gui        # or: pyi-doctor-gui, python -m pyi_doctor.gui
+```
+
+A small tkinter window with two tabs. **Build**: pick the entry script (or load a `pyproject.toml`), set name, version, publisher and icon, tick the steps, press *Build*; the log shows each step and *Open output folder* opens the release folder. **Diagnose**: pick any `.exe` and see its risk factors. It runs the same `build_all()` / `diagnose()` as the command line. tkinter ships with the python.org installers for Windows and macOS; on Debian/Ubuntu install `python3-tk`.
+
 ## Command line
 
 ```bash
@@ -162,6 +170,7 @@ pyi-doctor diagnose MyApp.exe --no-icon             # also count the default-ico
 pyi-doctor smoke dist/portable/MyApp/MyApp.exe -- --version
 pyi-doctor iss                          # write the Inno Setup script only
 pyi-doctor init --write                 # add [tool.pyi-doctor] to pyproject.toml
+pyi-doctor gui                          # open the desktop window
 ```
 
 ## Library API

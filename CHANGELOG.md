@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0 - 2026-11-15
+
+- Desktop window (tkinter, no new dependency): `pyi-doctor gui`, `pyi-doctor-gui` or `python -m pyi_doctor.gui`. Build tab runs `build_all()` with a live log (form fields or a loaded `pyproject.toml`, step check boxes, Windows cross-build target); Diagnose tab scores any `.exe`.
+- Form helpers usable without a display: `pyi_doctor.gui.project_from_form()`, `build_kwargs()`, `form_from_project()`.
+- CLI `diagnose` output now shares its formatting with the window (`gui.diagnosis_lines`); text unchanged.
+
 ## 1.3.0 - 2026-11-11
 
 - Experimental: build a PyInstaller-format Windows x64 exe on Linux/macOS without Wine: `pyi-doctor build --target win`, `build_windows()`, `build_all(..., target="win")`. Uses the python.org Windows embeddable package, the `win_amd64` PyInstaller wheel (bootloader) and `win_amd64` / pure-Python wheels; modules via PyInstaller's modulegraph, DLLs via `pefile`, hooks answered from the unpacked files; icon, version information and manifest written as PE resources in pure Python. Stops with `CrossBuildUnsupported` (list of reasons) when the app is outside the supported scope.

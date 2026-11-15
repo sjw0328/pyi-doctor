@@ -71,16 +71,10 @@ def cmd_diagnose(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps([r.to_dict() for r in results], indent=2, ensure_ascii=False))
         return 0
+    from .gui import diagnosis_lines
+
     for r in results:
-        print(f"{r.path}")
-        print(f"  risk score : {r.score}/100 ({r.level})  [indicator only]")
-        print(f"  sha256     : {r.sha256}")
-        print(f"  defender   : {r.defender.status} {r.defender.detail}".rstrip())
-        print(f"  bootloader : {r.bootloader} (PyInstaller in this environment)")
-        for f in r.factors:
-            print(f"  - [{f.weight:2}] {f.label}\n         -> {f.advice}")
-        for n in r.notes:
-            print(f"  note: {n}")
+        print("\n".join(diagnosis_lines(r)))
     return 0
 
 
@@ -120,6 +114,12 @@ def cmd_init(args: argparse.Namespace) -> int:
     path.write_text(text + sep + SAMPLE_CONFIG, encoding="utf-8")
     print(f"added [tool.pyi-doctor] to {path}")
     return 0
+
+
+def cmd_gui(args: argparse.Namespace) -> int:
+    from .gui import main as gui_main
+
+    return gui_main()
 
 
 def make_parser() -> argparse.ArgumentParser:
@@ -176,6 +176,9 @@ def make_parser() -> argparse.ArgumentParser:
     n.add_argument("--config", default="pyproject.toml")
     n.add_argument("--write", action="store_true")
     n.set_defaults(func=cmd_init)
+
+    g = sub.add_parser("gui", help="open the desktop window (tkinter)")
+    g.set_defaults(func=cmd_gui)
     return parser
 
 
