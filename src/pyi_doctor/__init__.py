@@ -18,7 +18,7 @@ Without writing any settings (entry script, name, icon, console mode are guessed
         print(c.status, c.message, c.fix)
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 from .config import Project  # noqa: E402
 from .errors import BuildError, ConfigError, CrossBuildUnsupported, PyiDoctorError, ToolNotFoundError  # noqa: E402

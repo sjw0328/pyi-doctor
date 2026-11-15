@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.0 - 2026-11-15
+
+- README (English and Korean): measured time and output size of an AI-agent build with brief output (`quickref` + `check` + `build`: about 15 s and 1,311 characters on the bundled example, against 21,721 characters when reading the README and full output). This updates the PyPI project page; no code changes since 1.6.0.
+
 ## 1.6.0 - 2026-11-15
 
 - Zero-config: without `[tool.pyi-doctor]`, entry script, name, version, console/window mode, icon, license file and data folders are guessed from the project folder and printed. `pyi-doctor build [PATH]` accepts an entry script, project folder or `pyproject.toml`. Library: `Project.load()`, `Project.from_folder()`, `Project.detected`, `detect()`. `from_pyproject()` guesses a missing `entry`.
