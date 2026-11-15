@@ -91,6 +91,15 @@ next: add 'requests' to hidden_imports (or check that the package is installed i
 
 위 예시에서 빌드 출력이 2,155자에서 703자로 줄었습니다. `pyi-doctor quickref`는 10줄짜리 사용법 요약을 출력하므로 에이전트가 이 README를 읽지 않아도 됩니다. 같은 내용이 [llms.txt](llms.txt)에 있습니다.
 
+`examples/hello` 기준 측정값입니다(리눅스 x86_64, Python 3.13, PyInstaller 6.22.3, onedir + onefile. 명령 실행 시간만이며 에이전트 자체의 생각 시간은 빠져 있고, 토큰은 약 4글자당 1토큰으로 추정).
+
+| 에이전트 작업 흐름 | 시간 | 에이전트가 읽는 글 |
+|---|---|---|
+| `quickref` + `check` + `build` (짧은 출력) | 0.5초 + 14.4초 | 1,311자 (약 330토큰) |
+| README + `check` + `build` (전체 출력) | 같음 | 21,721자 (약 5,400토큰) |
+
+설정 없는 단일 스크립트의 첫 빌드(`pyi-doctor build`, onedir만)는 5.9초였습니다. 고치고 다시 빌드할 때마다 빌드 한 번이 더해집니다. 시간은 컴퓨터와 앱 크기에 따라 다릅니다.
+
 ## 리눅스·맥에서 윈도우 exe 빌드 (실험 기능)
 
 PyInstaller는 크로스 컴파일을 하지 않아 윈도우 exe를 만들려면 보통 윈도우(또는 Wine)가 필요합니다. `pyi-doctor build --target win`은 Wine 없이 리눅스·맥에서 PyInstaller 형식의 윈도우 exe를 만듭니다.

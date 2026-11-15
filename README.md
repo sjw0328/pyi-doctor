@@ -101,6 +101,15 @@ next: add 'requests' to hidden_imports (or check that the package is installed i
 
 On the example above the build output went from 2,155 to 703 characters. `pyi-doctor quickref` prints a 10-line usage summary so an agent does not need to read this README; the same text is in [llms.txt](llms.txt).
 
+Measured with `examples/hello` (Linux x86_64, Python 3.13, PyInstaller 6.22.3, onedir + onefile; command output only, the agent's own thinking time is not included; tokens estimated at about 4 characters per token):
+
+| Agent workflow | Time | Text the agent reads |
+|---|---|---|
+| `quickref` + `check` + `build` (brief) | 0.5 s + 14.4 s | 1,311 characters (~330 tokens) |
+| README + `check` + `build` (full output) | same | 21,721 characters (~5,400 tokens) |
+
+A first build of a one-file script with no settings (`pyi-doctor build`, onedir only) took 5.9 s. Each fix-and-rebuild round adds one more build. Times depend on the machine and the size of the app.
+
 ## Build the Windows exe on Linux or macOS (experimental)
 
 PyInstaller does not cross-compile, so a Windows exe normally needs a Windows machine (or Wine). `pyi-doctor build --target win` builds a PyInstaller-format Windows exe on Linux or macOS without Wine:
