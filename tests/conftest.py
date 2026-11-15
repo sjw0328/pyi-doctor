@@ -21,3 +21,12 @@ def make_project(tmp_path):
         return Project(**kw)
 
     return _make
+
+
+@pytest.fixture(autouse=True)
+def _full_output(monkeypatch):
+    """Tests expect the normal output even when they run inside an AI agent."""
+    from pyi_doctor.summary import AGENT_ENV_VARS
+
+    for k in AGENT_ENV_VARS + ("PYI_DOCTOR_BRIEF",):
+        monkeypatch.delenv(k, raising=False)

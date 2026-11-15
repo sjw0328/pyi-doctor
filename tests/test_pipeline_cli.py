@@ -173,7 +173,7 @@ def test_cli_iss(tmp_path, capsys, monkeypatch):
 def test_cli_missing_config(tmp_path, capsys, monkeypatch):
     monkeypatch.chdir(tmp_path)
     assert cli.main(["build"]) == 1
-    assert "not found" in capsys.readouterr().err
+    assert "no entry script found" in capsys.readouterr().err
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="shebang script")

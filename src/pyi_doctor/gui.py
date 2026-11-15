@@ -9,12 +9,18 @@ Two tabs:
   background thread and shows its log.
 * **Diagnose**: pick any ``.exe`` and show its antivirus risk factors.
 
+Convenience: *Open project...* fills the form from a folder (settings are
+guessed when there is no ``[tool.pyi-doctor]``), picking an entry script fills
+empty fields, *Check* runs the quick pre-build checks, *Save settings* writes a
+``[tool.pyi-doctor]`` block, and the last form is restored on the next start.
+
 The form-to-settings logic lives in plain functions (:func:`project_from_form`,
 :func:`build_kwargs`) so it can be used and tested without a display.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import queue
 import subprocess
@@ -81,9 +87,11 @@ def project_from_form(values: Dict[str, Any]) -> Project:
     if not entry or not overrides["name"]:
         raise PyiDoctorError("Entry script and name are required (or load a pyproject.toml).")
     entry_path = Path(entry).expanduser().resolve()
-    data = {k: val for k, val in overrides.items() if val is not None}
-    data["entry"] = str(entry_path)
-    return Project.from_dict(data, root=entry_path.parent)
+    data = {k: val for k, val in overrides.items() if val is not None and k != "entry"}
+    if not entry_path.is_file():
+        raise PyiDoctorError(f"entry script not found: {entry_path}")
+    # License file and data folders next to the script are picked up (see Project.detected).
+    return Project.from_folder(entry_path.parent, entry=entry_path, **data)
 
 
 def form_from_project(project: Project, config: str = "") -> Dict[str, Any]:
@@ -122,8 +130,122 @@ def build_kwargs(values: Dict[str, Any], project: Project) -> Dict[str, Any]:
     return kwargs
 
 
+def state_file() -> Path:
+    """Where the window remembers the last form (per user)."""
+    env = os.environ.get("PYI_DOCTOR_GUI_STATE")
+    if env:
+        return Path(env)
+    if IS_WINDOWS and os.environ.get("APPDATA"):
+        base = Path(os.environ["APPDATA"])
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support"
+    else:
+        base = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    return base / "pyi-doctor" / "gui.json"
+
+
+def load_form_state() -> Dict[str, Any]:
+    """Last saved form values (only known keys, right types); empty if none or unreadable."""
+    try:
+        data = json.loads(state_file().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {k: v for k, v in data.items() if k in DEFAULTS and isinstance(v, type(DEFAULTS[k]))}
+
+
+def save_form_state(values: Dict[str, Any]) -> None:
+    """Remember form values for the next start (errors are ignored)."""
+    path = state_file()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        clean = {k: v for k, v in values.items() if k in DEFAULTS}
+        path.write_text(json.dumps(clean, indent=2, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def form_from_path(path: str) -> "tuple[Dict[str, Any], List[str]]":
+    """Form values for a folder, entry script or pyproject.toml, plus the guessed-setting notes."""
+    project = Project.load(path)
+    p = Path(path).expanduser().resolve()
+    cfg = p if p.suffix == ".toml" else (p.parent if p.is_file() else p) / "pyproject.toml"
+    has_table = False
+    if cfg.is_file():
+        from .config import _load_toml
+
+        has_table = "pyi-doctor" in _load_toml(cfg).get("tool", {})
+    return form_from_project(project, str(cfg) if has_table else ""), list(project.detected)
+
+
+def fill_from_entry(values: Dict[str, Any], entry: str) -> Dict[str, Any]:
+    """Fill empty name/version/icon and the console box from a newly picked entry script."""
+    from .autodetect import detect
+
+    out = dict(values)
+    out["entry"] = entry
+    try:
+        det = detect(Path(entry).expanduser().resolve().parent, entry=entry).values
+    except Exception:  # noqa: BLE001 - guessing is optional
+        return out
+    root = Path(entry).expanduser().resolve().parent
+    if not str(out.get("name", "")).strip() and det.get("name"):
+        out["name"] = det["name"]
+    if str(out.get("version", "")).strip() in ("", DEFAULTS["version"]) and det.get("version"):
+        out["version"] = det["version"]
+    if not str(out.get("icon", "")).strip() and det.get("icon"):
+        out["icon"] = str((root / det["icon"]).resolve())
+    if "console" in det:
+        out["console"] = bool(det["console"])
+    return out
+
+
+def settings_block(values: Dict[str, Any], project: Project) -> str:
+    """``[tool.pyi-doctor]`` text for the current form (relative paths, new app_id if none)."""
+    from .autodetect import config_text, new_app_id
+
+    root = Path(project.root)
+
+    def rel(p: Optional[Path]) -> Optional[str]:
+        if p is None:
+            return None
+        try:
+            return p.resolve().relative_to(root).as_posix()
+        except ValueError:
+            return str(p)
+
+    data: Dict[str, Any] = {"entry": rel(project.entry_path), "name": project.name}
+    if project.display_name:
+        data["display_name"] = project.display_name
+    data["version"] = project.version
+    data["publisher"] = project.publisher or "Your Name"
+    if project.icon_path:
+        data["icon"] = rel(project.icon_path)
+    data["app_id"] = project.app_id or new_app_id()
+    data["console"] = project.console
+    data["onefile"] = bool(values.get("onefile", project.onefile))
+    if project.license_file:
+        data["license_file"] = rel(project.license_path)
+    if project.add_data:
+        data["add_data"] = [f"{s}={d}" for s, d in project.add_data]
+    data["languages"] = list(project.languages)
+    return config_text(data)
+
+
+def write_settings(values: Dict[str, Any], project: Project) -> Path:
+    """Add the form as ``[tool.pyi-doctor]`` to ``<project root>/pyproject.toml``. Refuses to overwrite one."""
+    path = Path(project.root) / "pyproject.toml"
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    if "[tool.pyi-doctor]" in text:
+        raise PyiDoctorError(f"{path} already has [tool.pyi-doctor]; edit it there")
+    sep = "" if not text or text.endswith("\n\n") else ("\n" if text.endswith("\n") else "\n\n")
+    path.write_text(text + sep + settings_block(values, project), encoding="utf-8")
+    return path
+
+
 def open_folder(path: Path) -> None:
-    """Open a folder in the system file manager."""
+    """Open a folder (or a file with its default app)."""
     path = Path(path)
     if IS_WINDOWS:
         os.startfile(str(path))  # type: ignore[attr-defined]  # noqa: S606
@@ -175,14 +297,23 @@ class App:  # pragma: no cover - needs a display; logic is tested through the fu
             var = tk.StringVar(value=DEFAULTS[key])
             self.vars[key] = var
             ttk.Entry(b, textvariable=var).grid(row=row, column=1, sticky="ew", pady=2)
-            if browse:
+            if browse == "entry":
+                ttk.Button(b, text="Browse...", command=lambda: self._browse_entry(filetypes)).grid(
+                    row=row, column=2, padx=(6, 0), pady=2)
+            elif browse:
                 ttk.Button(b, text="Browse...", command=lambda: self._browse(var, filetypes)).grid(
                     row=row, column=2, padx=(6, 0), pady=2)
             row += 1
 
+        top = ttk.Frame(b)
+        top.grid(row=row, column=0, columnspan=4, sticky="ew", pady=(0, 6))
+        row += 1
+        ttk.Button(top, text="Open project folder...", command=self._open_project).pack(side="left")
+        ttk.Label(top, text="Fills the form; missing settings are guessed. Or pick the entry script below.",
+                  foreground="gray").pack(side="left", padx=8)
         text_row("config", "pyproject.toml (optional)", "file", [("pyproject.toml", "*.toml"), ("All files", "*")])
         ttk.Button(b, text="Load", command=self._load_config).grid(row=row - 1, column=3, padx=(6, 0))
-        text_row("entry", "Entry script *", "file", [("Python", "*.py *.pyw"), ("All files", "*")])
+        text_row("entry", "Entry script *", "entry", [("Python", "*.py *.pyw"), ("All files", "*")])
         text_row("name", "App name *")
         text_row("display_name", "Display name")
         text_row("version", "Version")
@@ -229,9 +360,15 @@ class App:  # pragma: no cover - needs a display; logic is tested through the fu
         row += 1
         self.build_btn = ttk.Button(actions, text="Build", command=self._start_build)
         self.build_btn.pack(side="left")
+        self.check_btn = ttk.Button(actions, text="Check", command=self._run_check)
+        self.check_btn.pack(side="left", padx=(6, 0))
+        ttk.Button(actions, text="Save settings", command=self._save_settings).pack(side="left", padx=(6, 0))
         self.open_btn = ttk.Button(actions, text="Open output folder", command=self._open_output)
         self.open_btn.pack(side="left", padx=6)
         self.open_btn.state(["disabled"])
+        self.report_btn = ttk.Button(actions, text="Open report", command=self._open_report)
+        self.report_btn.pack(side="left")
+        self.report_btn.state(["disabled"])
         self.status = tk.StringVar(value="Ready.")
         ttk.Label(actions, textvariable=self.status).pack(side="left", padx=10)
 
@@ -262,7 +399,27 @@ class App:  # pragma: no cover - needs a display; logic is tested through the fu
         ttk.Label(d, text="The score is a rough indicator for comparing builds, not a prediction of antivirus results.",
                   foreground="gray").grid(row=3, column=0, columnspan=3, sticky="w", pady=(6, 0))
 
+        saved = load_form_state()
+        if saved:
+            self._set_values(saved, all_keys=True)
+            self.status.set("Restored the last form.")
+        root.protocol("WM_DELETE_WINDOW", self._close)
         root.after(self.POLL_MS, self._poll)
+
+    def open_path(self, path: str) -> None:
+        """Fill the form from a folder, entry script or pyproject.toml."""
+        try:
+            values, notes = form_from_path(path)
+        except PyiDoctorError as exc:
+            self.messagebox.showerror("pyi-doctor", str(exc))
+            return
+        self._set_values(values)
+        self._write(self.log, f"Opened {path}", clear=True)
+        if notes:
+            self._write(self.log, "Guessed settings (check them, then 'Save settings' keeps them):")
+            for n in notes:
+                self._write(self.log, f"  {n}")
+        self.status.set("Project loaded.")
 
     # ------------------------------------------------------------ helpers
     def _browse(self, var, filetypes) -> None:
@@ -270,14 +427,28 @@ class App:  # pragma: no cover - needs a display; logic is tested through the fu
         if path:
             var.set(path)
 
+    def _browse_entry(self, filetypes) -> None:
+        path = self.filedialog.askopenfilename(filetypes=filetypes or [("All files", "*")])
+        if path:
+            self._set_values(fill_from_entry(self._values(), path))
+            self.status.set("Filled empty fields from the script.")
+
     def _values(self) -> Dict[str, Any]:
         return {k: v.get() for k, v in self.vars.items()}
 
-    def _set_values(self, values: Dict[str, Any]) -> None:
+    def _set_values(self, values: Dict[str, Any], *, all_keys: bool = False) -> None:
+        steps = ("installer", "smoke_test", "diagnose", "defender", "licenses", "target", "requirements")
         for k, val in values.items():
-            if k in self.vars and k not in ("installer", "smoke_test", "diagnose", "defender", "licenses", "target",
-                                            "requirements"):
+            if k in self.vars and (all_keys or k not in steps):
+                if k == "defender" and not IS_WINDOWS:
+                    continue
+                if k == "target" and IS_WINDOWS:
+                    continue
                 self.vars[k].set(val)
+
+    def _close(self) -> None:
+        save_form_state(self._values())
+        self.root.destroy()
 
     def _write(self, widget, text: str, *, clear: bool = False) -> None:
         widget.configure(state="normal")
@@ -288,7 +459,7 @@ class App:  # pragma: no cover - needs a display; logic is tested through the fu
         widget.configure(state="disabled")
 
     def _busy(self, busy: bool) -> None:
-        for btn in (self.build_btn, self.diag_btn):
+        for btn in (self.build_btn, self.diag_btn, self.check_btn):
             btn.state(["disabled"] if busy else ["!disabled"])
 
     # ------------------------------------------------------------ actions
@@ -306,8 +477,53 @@ class App:  # pragma: no cover - needs a display; logic is tested through the fu
         self._set_values(form_from_project(project, cfg))
         self.status.set(f"Loaded {Path(cfg).name}")
 
+    def _open_project(self) -> None:
+        folder = self.filedialog.askdirectory()
+        if folder:
+            self.open_path(folder)
+
+    def _project_or_error(self) -> Optional[Project]:
+        try:
+            return project_from_form(self._values())
+        except PyiDoctorError as exc:
+            self.messagebox.showerror("pyi-doctor", str(exc))
+            return None
+
+    def _run_check(self) -> None:
+        from .preflight import check_lines, run_checks
+
+        values = self._values()
+        try:
+            project, error = project_from_form(values), None
+        except PyiDoctorError as exc:
+            project, error = None, str(exc)
+        target = values.get("target", "native")
+        self._write(self.log, "Checking ...", clear=True)
+        self._write(self.log, "\n".join(check_lines(run_checks(project, target=target, load_error=error))))
+
+    def _save_settings(self) -> None:
+        project = self._project_or_error()
+        if project is None:
+            return
+        try:
+            path = write_settings(self._values(), project)
+        except PyiDoctorError as exc:
+            self.messagebox.showinfo("pyi-doctor", str(exc))
+            return
+        self.vars["config"].set(str(path))
+        self.status.set(f"Saved to {path.name}")
+        self._write(self.log, f"Added [tool.pyi-doctor] to {path}. Keep app_id unchanged after the first release.")
+
+    def _open_report(self) -> None:
+        if self.last_project is None:
+            return
+        report = self.last_project.release_path / "report.md"
+        if report.is_file():
+            open_folder(report)
+
     def _start_build(self) -> None:
         values = self._values()
+        save_form_state(values)
         try:
             project = project_from_form(values)
             project.check_files()
@@ -319,6 +535,8 @@ class App:  # pragma: no cover - needs a display; logic is tested through the fu
         self._busy(True)
         self.status.set("Building ...")
         self._write(self.log, f"pyi-doctor {__version__} - {project.name} {project.version}", clear=True)
+        for note in project.detected:
+            self._write(self.log, f"  guessed: {note}")
 
         def work() -> None:
             from .pipeline import build_all
@@ -367,11 +585,15 @@ class App:  # pragma: no cover - needs a display; logic is tested through the fu
                 if kind == "log":
                     self._write(self.log, str(payload))
                 elif kind == "built":
+                    from .summary import summary_lines
+
                     self._busy(False)
                     self.open_btn.state(["!disabled"])
+                    self.report_btn.state(["!disabled"])
                     ok = payload.ok
-                    self.status.set("Done." if ok else "Finished with failures - see the log.")
-                    self._write(self.log, f"\nReport: {self.last_project.release_path / 'report.md'}")
+                    self.status.set("Done." if ok else "Finished with failures - see Next steps in the log.")
+                    self._write(self.log, "\n".join(summary_lines(payload, self.last_project)))
+                    self._write(self.log, f"Report: {self.last_project.release_path / 'report.md'}")
                 elif kind == "error":
                     self._busy(False)
                     self.status.set("Failed.")
@@ -418,8 +640,11 @@ def main(argv: Optional[List[str]] = None) -> int:  # pragma: no cover - opens a
             ctypes.windll.shcore.SetProcessDpiAwareness(1)  # type: ignore[attr-defined]
         except Exception:  # noqa: BLE001
             pass
+    args = list(sys.argv[1:] if argv is None else argv)
     root = tk.Tk()
-    App(root)
+    app = App(root)
+    if args:
+        app.open_path(args[0])
     root.mainloop()
     return 0
 

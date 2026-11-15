@@ -9,9 +9,16 @@ Typical use::
     project = Project(entry="main.py", name="MyApp", version="1.0.0", publisher="Me")
     report = build_all(project, log=print)
     print(report.ok)
+
+Without writing any settings (entry script, name, icon, console mode are guessed)::
+
+    project = Project.load(".")        # or "main.py" / "pyproject.toml"
+    print(project.detected)            # what was guessed
+    for c in check(project):           # quick pre-build checks
+        print(c.status, c.message, c.fix)
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 from .config import Project  # noqa: E402
 from .errors import BuildError, ConfigError, CrossBuildUnsupported, PyiDoctorError, ToolNotFoundError  # noqa: E402
@@ -26,6 +33,8 @@ __all__ = [
     "diagnose",
     "smoke_test",
     "collect_licenses",
+    "check",
+    "detect",
     "PyiDoctorError",
     "ConfigError",
     "BuildError",
@@ -74,6 +83,20 @@ def smoke_test(exe, **kwargs):
     from .smoke import run
 
     return run(exe, **kwargs)
+
+
+def check(project=None, *, target: str = "native"):
+    """Quick pre-build checks of the environment and ``project``; list of ``Check(name, status, message, fix)``."""
+    from .preflight import run_checks
+
+    return run_checks(project, target=target)
+
+
+def detect(folder=".", *, entry=None):
+    """Guess settings for the app in ``folder``; ``Detection`` with ``.values`` and ``.notes``."""
+    from .autodetect import detect as _impl
+
+    return _impl(folder, entry=entry)
 
 
 def collect_licenses(work_dir=None):

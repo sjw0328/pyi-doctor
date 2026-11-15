@@ -13,6 +13,7 @@ In one call it builds a portable exe and a setup wizard, test-starts the build o
 
 ```bash
 pip install pyi-doctor
+pyi-doctor build main.py        # no config needed: entry, name, icon, window/console mode are guessed
 pyi-doctor diagnose MyApp.exe
 ```
 
@@ -62,6 +63,43 @@ pip install pyi-doctor
 ```
 
 Requirements: Python 3.9+, PyInstaller 6+ (installed as a dependency). The installer step needs Windows and [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer (not bundled; set `PYI_DOCTOR_ISCC` if it is not in the default location). The GitHub upload needs the [GitHub CLI](https://cli.github.com/).
+
+## Zero-config start
+
+No settings are needed for a first build. Without a `[tool.pyi-doctor]` table, pyi-doctor guesses them from the project folder and prints what it guessed:
+
+| Setting | Guessed from |
+|---|---|
+| `entry` | `main.py`, `app.py`, `__main__.py`, ... or the one script with `if __name__ == "__main__"` |
+| `name` | `[project].name`, the script name or the folder name |
+| `version` | `[project].version` or `__version__` in the script |
+| `console` | `false` if the script (or a script it imports) imports tkinter, customtkinter, PySide/PyQt, wx, pygame, kivy, flet, ... |
+| `icon`, `license_file`, `add_data` | an `.ico` in the folder or `assets/`, `LICENSE`, folders such as `assets/`, `data/`, `resources/` |
+
+```bash
+pyi-doctor check                 # quick checks before building (seconds), with what to change
+pyi-doctor build                 # or: pyi-doctor build main.py / path/to/project
+pyi-doctor init --write          # keep the guesses + a new fixed app_id in pyproject.toml
+```
+
+`check` looks at PyInstaller, the virtual environment, Inno Setup, the entry script's syntax, the icon (valid `.ico`, 256x256 image), `app_id`, publisher, missing files and cross-build limits. `build` runs the same checks first and stops on problems that would make PyInstaller fail (`--no-check` skips this). At the end it prints a step table, the release files and **Next steps** (for example "add 'x' to hidden_imports" or where to get Inno Setup). Guesses are heuristics; review them before a release.
+
+Typos in settings get a suggestion: `unknown setting 'hiden_imports' (did you mean 'hidden_imports'?)`.
+
+## For AI coding agents: short output
+
+With `--brief` the commands print only what needs action, one line each, and `--json` becomes compact (`diagnose` keeps score, level and factor keys; `check` keeps problems and warnings). Brief mode turns on automatically when an AI coding agent is detected (`AI_AGENT`, `CLAUDECODE`, `CURSOR_AGENT`, `CODEX_SANDBOX`, `GEMINI_CLI`, `AIDER_MODEL`); `PYI_DOCTOR_BRIEF=1` / `0` or `--brief` / `--no-brief` override it.
+
+```
+$ pyi-doctor build
+guessed: entry=main.py name=demo console=true
+FAILED: 8 steps, 1 need attention
+FAIL smoke: onedir: failed
+release: /work/demo/dist/release (4 files)
+next: add 'requests' to hidden_imports (or check that the package is installed in the build environment)
+```
+
+On the example above the build output went from 2,155 to 703 characters. `pyi-doctor quickref` prints a 10-line usage summary so an agent does not need to read this README; the same text is in [llms.txt](llms.txt).
 
 ## Build the Windows exe on Linux or macOS (experimental)
 
@@ -158,12 +196,15 @@ languages = ["english", "korean"]
 pyi-doctor gui        # or: pyi-doctor-gui, python -m pyi_doctor.gui
 ```
 
-A small tkinter window with two tabs. **Build**: pick the entry script (or load a `pyproject.toml`), set name, version, publisher and icon, tick the steps, press *Build*; the log shows each step and *Open output folder* opens the release folder. **Diagnose**: pick any `.exe` and see its risk factors. It runs the same `build_all()` / `diagnose()` as the command line. tkinter ships with the python.org installers for Windows and macOS; on Debian/Ubuntu install `python3-tk`.
+A small tkinter window with two tabs. **Build**: *Open project folder...* (or `pyi-doctor gui path/to/project`) fills the form, guessing missing settings; picking an entry script fills empty fields (name, version, icon, console). Tick the steps and press *Build*; the log shows each step, then the summary with next steps. *Check* runs the quick checks, *Save settings* writes a `[tool.pyi-doctor]` block with a new fixed `app_id`, *Open output folder* / *Open report* open the results, and the last form is restored on the next start. **Diagnose**: pick any `.exe` and see its risk factors. It runs the same `build_all()` / `diagnose()` as the command line. tkinter ships with the python.org installers for Windows and macOS; on Debian/Ubuntu install `python3-tk`.
 
 ## Command line
 
 ```bash
-pyi-doctor build                        # full pipeline from pyproject.toml
+pyi-doctor build                        # full pipeline (pyproject.toml, or guessed settings)
+pyi-doctor build main.py --icon app.ico --publisher "Me" --open
+pyi-doctor check                        # quick checks before building
+pyi-doctor quickref                     # 10-line usage summary (for AI agents)
 pyi-doctor build --onefile --no-defender
 pyi-doctor build --github-release v1.0.0 --github-repo me/myapp
 pyi-doctor build --target win -r requirements.txt   # Windows exe from Linux/macOS (experimental)
@@ -171,22 +212,24 @@ pyi-doctor diagnose dist/portable/MyApp/MyApp.exe   # score any exe
 pyi-doctor diagnose MyApp.exe --no-icon             # also count the default-icon factor
 pyi-doctor smoke dist/portable/MyApp/MyApp.exe -- --version
 pyi-doctor iss                          # write the Inno Setup script only
-pyi-doctor init --write                 # add [tool.pyi-doctor] to pyproject.toml
+pyi-doctor init --write                 # add [tool.pyi-doctor] (guessed values + new app_id) to pyproject.toml
 pyi-doctor gui                          # open the desktop window
 ```
 
 ## Library API
 
 ```python
-from pyi_doctor import Project, build_portable, build_installer, smoke_test, diagnose, collect_licenses
+from pyi_doctor import Project, build_portable, build_installer, smoke_test, diagnose, collect_licenses, check, detect
 
-project = Project.from_pyproject("pyproject.toml")
+project = Project.load(".")                          # pyproject.toml, or guessed settings (see project.detected)
 onedir = build_portable(project)                     # Artifact(kind="onedir", path=..., folder=...)
 result = smoke_test(onedir.path, timeout=10)         # SmokeResult(ok, status, missing_modules, ...)
 risk = diagnose(onedir.path, icon_configured=True)   # Diagnosis(score, level, factors, defender, ...)
 setup = build_installer(project, onedir.folder)      # Windows + Inno Setup
 packages, mode = collect_licenses(project.work_path / "onedir")
 ```
+
+`check(project)` returns the quick checks (`name`, `status`, `message`, `fix`); `detect(folder)` returns the guessed settings without building.
 
 `build_all(project, onefile=..., installer=..., smoke_test=..., diagnose=..., defender=..., licenses=..., sbom_file=..., github_tag=..., target="win")` runs everything and returns a `Report` with `.ok`, `.steps`, `.to_markdown()` and `.to_json()`.
 
@@ -210,7 +253,7 @@ pyi-doctor does not obfuscate, encrypt or otherwise hide code from scanners. It 
 | release folder (zip + checksums) | 1.5 s |
 | **total** | **19.7 s** |
 
-Test suite: 167 tests (including 2 real PyInstaller builds and 2 cross builds) on Linux; CI runs the unit tests on Python 3.9–3.14 on Linux and Windows, and the cross build on Linux with a start test on Windows. Windows-specific paths (version resource, Inno Setup compilation, Defender scan, error-dialog detection in the smoke test) run in the Windows CI jobs.
+Test suite: 204 tests (including 2 real PyInstaller builds and 2 cross builds) on Linux; CI runs the unit tests on Python 3.9–3.14 on Linux and Windows, and the cross build on Linux with a start test on Windows. Windows-specific paths (version resource, Inno Setup compilation, Defender scan, error-dialog detection in the smoke test) run in the Windows CI jobs.
 
 ## Known limitations
 
@@ -218,6 +261,7 @@ Test suite: 167 tests (including 2 real PyInstaller builds and 2 cross builds) o
 - The smoke test is a heuristic. It removes Python from the environment but does not reproduce a clean PC (installed DLLs, Visual C++ runtime, fonts, etc.). GUI apps that keep running are counted as started. Windowed apps that crash show a PyInstaller error dialog; on Windows pyi-doctor looks for that dialog by window title, which may not catch every case.
 - The bootloader check compares the installed PyInstaller bootloader with the hashes recorded in its wheel. It describes the PyInstaller in the current environment, not an exe built elsewhere.
 - License notices come from package metadata, which can be missing or wrong; packages loaded dynamically may be missed. Review the generated file.
+- Guessed settings and the quick checks are heuristics based on file names and imports; they can be wrong or miss problems.
 - Only PyInstaller is supported (no Nuitka / cx_Freeze). No code signing and no auto-update.
 - The Windows cross build (`--target win`) is experimental: it covers only the scope listed above, is not checked against every PyInstaller hook, and does not start the exe. Downloads from python.org and PyPI are not signature-checked beyond HTTPS.
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.0 - 2026-11-15
+
+- Zero-config: without `[tool.pyi-doctor]`, entry script, name, version, console/window mode, icon, license file and data folders are guessed from the project folder and printed. `pyi-doctor build [PATH]` accepts an entry script, project folder or `pyproject.toml`. Library: `Project.load()`, `Project.from_folder()`, `Project.detected`, `detect()`. `from_pyproject()` guesses a missing `entry`.
+- New command `pyi-doctor check` (library: `check()`): quick checks of PyInstaller, virtual environment, Inno Setup, entry script syntax, icon (valid `.ico`, 256x256), `app_id`, publisher, missing files and cross-build limits, each with what to change. `build` runs them first and stops on problems that would make PyInstaller fail (`--no-check` skips).
+- `pyi-doctor init` fills the block from the project folder and adds a new fixed `app_id`; keys already in `[project]` are left out. `--entry` picks the script.
+- Build summary with release files and next steps (CLI and window).
+- Brief output for AI coding agents and CI logs: `--brief` on `build`, `check`, `diagnose`, `smoke`; compact `--json`. On automatically when an agent environment variable is set (`AI_AGENT`, `CLAUDECODE`, ...); `PYI_DOCTOR_BRIEF=0/1` overrides. New `pyi-doctor quickref` and `llms.txt`.
+- `build` options `--icon`, `--publisher`, `--display-name`, `--console/--no-console`, `--open`.
+- "did you mean" suggestions for unknown settings and installer languages.
+- Window: *Open project folder...*, entry script fills empty fields, *Check*, *Save settings*, *Open report*, summary after the build, last form restored; `pyi-doctor gui [PATH]`.
+
 ## 1.5.0 - 2026-11-15
 
 - New setting `display_name`: the name shown in the installer, Start menu, default install folder, Apps list and the exe's ProductName. Previously these always used `name` (the exe file name), so an exe named `MY_APP` showed as `MY_APP` everywhere. Defaults to `name`; also in the desktop window.

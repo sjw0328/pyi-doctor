@@ -1,0 +1,14 @@
+# pyi-doctor
+
+> Build PyInstaller apps as portable exe + installer, start-test them, score antivirus false-positive risk factors, list bundled licenses. pip install pyi-doctor. Docs: https://github.com/sjw0328/pyi-doctor#readme
+
+pyi-doctor quick reference (short output: --brief, auto-on for AI agents; PYI_DOCTOR_BRIEF=0 turns it off)
+  pyi-doctor check [PATH]           settings + environment problems; exit 1 = would stop the build
+  pyi-doctor build [PATH]           build exe + installer, start test, AV risk score, licenses -> dist/release
+  pyi-doctor build --target win     Windows x64 exe from Linux/macOS (experimental; no tkinter)
+  pyi-doctor init --write           save guessed settings + fixed app_id to pyproject.toml [tool.pyi-doctor]
+  pyi-doctor diagnose X.exe --json  AV risk factors (brief JSON: score, level, factor keys)
+  pyi-doctor smoke X.exe            start test only
+PATH = entry .py, project folder or pyproject.toml; without [tool.pyi-doctor] settings are guessed.
+Fix loop: run 'check'; on build FAIL read the 'next:' lines (e.g. add a module to hidden_imports), edit
+[tool.pyi-doctor] in pyproject.toml, rebuild. Full results: dist/release/report.json (read only if needed).

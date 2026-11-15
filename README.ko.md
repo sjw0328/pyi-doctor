@@ -11,6 +11,7 @@
 
 ```bash
 pip install pyi-doctor
+pyi-doctor build main.py        # 설정 없이 바로: 진입 스크립트·이름·아이콘·창/콘솔 여부를 추정
 pyi-doctor diagnose MyApp.exe
 ```
 
@@ -52,6 +53,43 @@ pip install pyi-doctor
 ```
 
 요구 사항: Python 3.9+, PyInstaller 6+(의존성으로 설치). 설치 프로그램 단계는 Windows와 [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 이상이 필요합니다(동봉하지 않음, 기본 위치가 아니면 `PYI_DOCTOR_ISCC` 환경 변수로 지정). GitHub 업로드는 [GitHub CLI](https://cli.github.com/)가 필요합니다.
+
+## 설정 없이 시작하기
+
+첫 빌드에는 설정이 필요하지 않습니다. `[tool.pyi-doctor]` 표가 없으면 프로젝트 폴더를 보고 설정을 추정하고, 추정한 값을 출력합니다.
+
+| 설정 | 추정 근거 |
+|---|---|
+| `entry` | `main.py`, `app.py`, `__main__.py` 등, 또는 `if __name__ == "__main__"`이 있는 스크립트 |
+| `name` | `[project].name`, 스크립트 이름 또는 폴더 이름 |
+| `version` | `[project].version` 또는 스크립트의 `__version__` |
+| `console` | 스크립트(또는 그 스크립트가 불러오는 옆 파일)가 tkinter·customtkinter·PySide/PyQt·wx·pygame·kivy·flet 등을 import하면 `false` |
+| `icon`, `license_file`, `add_data` | 폴더나 `assets/`의 `.ico`, `LICENSE`, `assets/`·`data/`·`resources/` 같은 폴더 |
+
+```bash
+pyi-doctor check                 # 빌드 전 빠른 점검(수 초)과 고칠 방법
+pyi-doctor build                 # 또는 pyi-doctor build main.py / 프로젝트 폴더 경로
+pyi-doctor init --write          # 추정값 + 새 고정 app_id를 pyproject.toml에 저장
+```
+
+`check`는 PyInstaller, 가상환경, Inno Setup, 진입 스크립트 문법, 아이콘(올바른 `.ico`, 256x256 포함 여부), `app_id`, 배포자, 누락 파일, 크로스 빌드 제한을 봅니다. `build`도 먼저 같은 점검을 하고 PyInstaller가 실패할 문제가 있으면 멈춥니다(`--no-check`로 건너뜀). 끝나면 단계표, 결과 파일, **Next steps**(예: "hidden_imports에 'x' 추가", Inno Setup 받는 곳)를 출력합니다. 추정은 휴리스틱이므로 배포 전에 확인하세요.
+
+설정 이름 오타에는 제안이 붙습니다: `unknown setting 'hiden_imports' (did you mean 'hidden_imports'?)`.
+
+## AI 코딩 에이전트용: 짧은 출력
+
+`--brief`를 주면 조치가 필요한 내용만 한 줄씩 출력하고, `--json`도 압축됩니다(`diagnose`는 점수·등급·요인 키만, `check`는 문제·경고만). AI 코딩 에이전트 환경(`AI_AGENT`, `CLAUDECODE`, `CURSOR_AGENT`, `CODEX_SANDBOX`, `GEMINI_CLI`, `AIDER_MODEL`)이 감지되면 자동으로 켜지고, `PYI_DOCTOR_BRIEF=1` / `0` 또는 `--brief` / `--no-brief`로 바꿀 수 있습니다.
+
+```
+$ pyi-doctor build
+guessed: entry=main.py name=demo console=true
+FAILED: 8 steps, 1 need attention
+FAIL smoke: onedir: failed
+release: /work/demo/dist/release (4 files)
+next: add 'requests' to hidden_imports (or check that the package is installed in the build environment)
+```
+
+위 예시에서 빌드 출력이 2,155자에서 703자로 줄었습니다. `pyi-doctor quickref`는 10줄짜리 사용법 요약을 출력하므로 에이전트가 이 README를 읽지 않아도 됩니다. 같은 내용이 [llms.txt](llms.txt)에 있습니다.
 
 ## 리눅스·맥에서 윈도우 exe 빌드 (실험 기능)
 
@@ -104,19 +142,22 @@ languages = ["english", "korean"]
 pyi-doctor gui        # 또는 pyi-doctor-gui, python -m pyi_doctor.gui
 ```
 
-tkinter로 만든 창이며 탭이 두 개입니다. **Build** 탭에서는 진입 스크립트를 고르거나 `pyproject.toml`을 불러온 뒤 이름·버전·배포자·아이콘을 입력하고 실행할 단계를 체크해 *Build*를 누릅니다. 단계별 로그가 표시되고, *Open output folder*로 결과 폴더를 열 수 있습니다. **Diagnose** 탭에서는 `.exe`를 골라 위험 요인을 확인합니다. 명령줄과 같은 `build_all()` / `diagnose()`를 실행합니다. python.org의 Windows·macOS 설치본에는 tkinter가 포함되어 있고, Debian/Ubuntu에서는 `python3-tk` 설치가 필요합니다.
+tkinter로 만든 창이며 탭이 두 개입니다. **Build** 탭에서는 *Open project folder...*(또는 `pyi-doctor gui 프로젝트경로`)로 폼을 채우고, 빠진 설정은 추정합니다. 진입 스크립트를 고르면 비어 있는 칸(이름·버전·아이콘·콘솔 여부)이 채워집니다. 단계를 체크해 *Build*를 누르면 단계별 로그와 다음 할 일 요약이 표시됩니다. *Check*는 빠른 점검, *Save settings*는 새 고정 `app_id`를 포함한 `[tool.pyi-doctor]` 저장, *Open output folder* / *Open report*는 결과 열기이며, 마지막 입력값은 다음 실행 때 복원됩니다. **Diagnose** 탭에서는 `.exe`를 골라 위험 요인을 확인합니다. 명령줄과 같은 `build_all()` / `diagnose()`를 실행합니다. python.org의 Windows·macOS 설치본에는 tkinter가 포함되어 있고, Debian/Ubuntu에서는 `python3-tk` 설치가 필요합니다.
 
 ## 명령줄
 
 ```bash
-pyi-doctor build                        # pyproject.toml 기준 전체 실행
+pyi-doctor build                        # 전체 실행 (pyproject.toml 또는 추정 설정)
+pyi-doctor build main.py --icon app.ico --publisher "Me" --open
+pyi-doctor check                        # 빌드 전 빠른 점검
+pyi-doctor quickref                     # 10줄 사용법 요약 (AI 에이전트용)
 pyi-doctor build --onefile --no-defender
 pyi-doctor build --target win -r requirements.txt   # 리눅스·맥에서 윈도우 exe (실험 기능)
 pyi-doctor diagnose MyApp.exe           # 아무 exe나 점수화
 pyi-doctor diagnose MyApp.exe --no-icon # 기본 아이콘 항목까지 포함
 pyi-doctor smoke MyApp.exe -- --version
 pyi-doctor iss                          # Inno Setup 스크립트만 생성
-pyi-doctor init --write
+pyi-doctor init --write                 # 추정값 + 새 app_id로 [tool.pyi-doctor] 추가
 pyi-doctor gui                          # 데스크톱 창 열기
 ```
 
