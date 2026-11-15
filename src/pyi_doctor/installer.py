@@ -67,7 +67,7 @@ def cm_arg(text: str) -> str:
 
 
 def output_basename(project: Project) -> str:
-    return f"{project.name}-{project.version}-setup"
+    return project.installer_basename
 
 
 def render_iss(
@@ -95,34 +95,36 @@ def render_iss(
     icon = icon_file if icon_file is not None else (str(project.icon_path) if project.icon_path else None)
     lic = license_file if license_file is not None else (str(project.license_path) if project.license_path else None)
     exe = project.name + ".exe"
+    title = project.app_display_name
+    app_id = ("{{" + project.effective_app_id + "}") if project.app_id_is_guid else iss_value(project.effective_app_id)
     v = ".".join(str(x) for x in project.windows_version)
     langs = list(languages) if languages is not None else list(project.languages) or ["english"]
     setup = [
-        ("AppId", "{{" + project.effective_app_id + "}"),  # literal brace, already escaped
-        ("AppName", iss_value(project.name)),
+        ("AppId", app_id),  # a GUID is written as {{GUID} (literal brace, already escaped)
+        ("AppName", iss_value(title)),
         ("AppVersion", iss_value(project.version)),
-        ("AppVerName", iss_value(f"{project.name} {project.version}")),
+        ("AppVerName", iss_value(f"{title} {project.version}")),
         ("AppPublisher", iss_value(project.display_publisher)),
     ]
     if project.website:
         setup += [("AppPublisherURL", iss_value(project.website)), ("AppSupportURL", iss_value(project.website))]
     setup += [
-        ("DefaultDirName", "{autopf}\\" + iss_value(project.name)),
-        ("DefaultGroupName", iss_value(project.name)),
+        ("DefaultDirName", "{autopf}\\" + iss_value(title)),
+        ("DefaultGroupName", iss_value(title)),
         ("DisableProgramGroupPage", "yes"),
         ("PrivilegesRequired", project.privileges),
         ("PrivilegesRequiredOverridesAllowed", "dialog"),
         ("OutputDir", iss_value(fix(str(output_dir)))),
         ("OutputBaseFilename", iss_value(output_basename(project))),
         ("UninstallDisplayIcon", "{app}\\" + iss_value(exe)),
-        ("UninstallDisplayName", iss_value(project.name)),
+        ("UninstallDisplayName", iss_value(title)),
         ("Compression", "lzma2"),
         ("SolidCompression", "yes"),
         ("WizardStyle", "modern"),
         ("VersionInfoVersion", v),
         ("VersionInfoCompany", iss_value(project.display_publisher)),
-        ("VersionInfoDescription", iss_value(f"{project.name} Setup")),
-        ("VersionInfoProductName", iss_value(project.name)),
+        ("VersionInfoDescription", iss_value(f"{title} Setup")),
+        ("VersionInfoProductName", iss_value(title)),
         ("VersionInfoProductVersion", v),
         ("ArchitecturesAllowed", "x64compatible" if _is_64bit() else "x86compatible"),
     ]
@@ -153,7 +155,7 @@ def render_iss(
     for f in extra_files:
         lines.append(f'Source: {iss_quoted(fix(str(f)))}; DestDir: "{{app}}"; Flags: ignoreversion')
     app_exe = "{app}\\" + iss_value(exe)
-    name_q = iss_value(project.name).replace('"', '""')
+    name_q = iss_value(title).replace('"', '""')
     lines += [
         "",
         "[Icons]",
@@ -161,7 +163,7 @@ def render_iss(
         f'Name: "{{autodesktop}}\\{name_q}"; Filename: "{app_exe}"; Tasks: desktopicon',
         "",
         "[Run]",
-        f'Filename: "{app_exe}"; Description: "{{cm:LaunchProgram,{cm_arg(project.name)}}}"; '
+        f'Filename: "{app_exe}"; Description: "{{cm:LaunchProgram,{cm_arg(title)}}}"; '
         "Flags: nowait postinstall skipifsilent",
         "",
     ]

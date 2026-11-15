@@ -78,6 +78,25 @@ def test_render_iss_basic(make_project, tmp_path):
     assert "\n" not in text.replace("\r\n", "")  # CRLF only
 
 
+def test_render_iss_display_name_and_installer_name(make_project, tmp_path):
+    p = make_project(name="APP_X", version="2.0.0", display_name="App X",
+                     installer_name="{name}_Setup_v{version}")
+    lines = _render(p, tmp_path).split("\r\n")
+    assert "AppName=App X" in lines
+    assert "AppVerName=App X 2.0.0" in lines
+    assert "DefaultDirName={autopf}\\App X" in lines
+    assert "UninstallDisplayName=App X" in lines
+    assert "OutputBaseFilename=APP_X_Setup_v2.0.0" in lines
+    assert "UninstallDisplayIcon={app}\\APP_X.exe" in lines
+    assert any(l.startswith('Name: "{autoprograms}\\App X"; Filename: "{app}\\APP_X.exe"') for l in lines)
+    assert installer.output_basename(p) == "APP_X_Setup_v2.0.0"
+
+
+def test_render_iss_non_guid_app_id(make_project, tmp_path):
+    lines = _render(make_project(app_id="Vendor.App"), tmp_path).split("\r\n")
+    assert "AppId=Vendor.App" in lines
+
+
 def test_render_iss_escapes_user_text(make_project, tmp_path):
     p = make_project(name="My {App}, Pro", publisher='A "B"')
     text = _render(p, tmp_path)

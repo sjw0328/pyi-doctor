@@ -69,8 +69,32 @@ def test_app_id_derived_is_stable_and_valid(make_project):
 def test_app_id_explicit(make_project):
     gid = str(uuid.uuid4())
     assert make_project(app_id="{" + gid + "}").effective_app_id == gid.upper()
-    with pytest.raises(ConfigError):
-        make_project(app_id="not-a-guid")
+    # Inno Setup accepts any fixed text; keeping an existing non-GUID AppId allows upgrades.
+    assert make_project(app_id="MyCompany.MyApp").effective_app_id == "MyCompany.MyApp"
+    assert not make_project(app_id="MyCompany.MyApp").app_id_is_guid
+    for bad in ("", "  ", "a{b", "a}b", "a\nb"):
+        with pytest.raises(ConfigError):
+            make_project(app_id=bad.replace("\\n", "\n"))
+
+
+def test_display_name(make_project):
+    p = make_project(name="APP_X")
+    assert p.app_display_name == "APP_X"
+    assert make_project(name="APP_X", display_name="App X").app_display_name == "App X"
+    for bad in ("", " App", "a/b", "a:b"):
+        with pytest.raises(ConfigError):
+            make_project(display_name=bad)
+
+
+def test_installer_name(make_project):
+    assert make_project(name="App", version="1.2.3").installer_basename == "App-1.2.3-setup"
+    p = make_project(name="App", version="1.2.3", display_name="My App",
+                     installer_name="{name}_Setup_v{version}")
+    assert p.installer_basename == "App_Setup_v1.2.3"
+    assert make_project(name="A", installer_name="{display_name} setup.exe").installer_basename == "A setup"
+    for bad in ("{unknown}", "{", "a/{name}", "", ".exe"):
+        with pytest.raises(ConfigError):
+            make_project(installer_name=bad)
 
 
 @pytest.mark.parametrize("item,expected", [

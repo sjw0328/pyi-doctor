@@ -34,6 +34,7 @@ DEFAULTS: Dict[str, Any] = {
     "config": "",
     "entry": "",
     "name": "",
+    "display_name": "",
     "version": "0.1.0",
     "publisher": "",
     "icon": "",
@@ -66,6 +67,7 @@ def project_from_form(values: Dict[str, Any]) -> Project:
     overrides: Dict[str, Any] = {
         "entry": _clean(v["entry"]),
         "name": _clean(v["name"]),
+        "display_name": _clean(v["display_name"]),
         "version": _clean(v["version"]),
         "publisher": _clean(v["publisher"]),
         "icon": _clean(v["icon"]),
@@ -91,6 +93,7 @@ def form_from_project(project: Project, config: str = "") -> Dict[str, Any]:
         "config": config,
         "entry": str(project.entry_path),
         "name": project.name,
+        "display_name": project.display_name or "",
         "version": project.version,
         "publisher": project.publisher,
         "icon": str(project.icon_path) if project.icon_path else "",
@@ -181,6 +184,7 @@ class App:  # pragma: no cover - needs a display; logic is tested through the fu
         ttk.Button(b, text="Load", command=self._load_config).grid(row=row - 1, column=3, padx=(6, 0))
         text_row("entry", "Entry script *", "file", [("Python", "*.py *.pyw"), ("All files", "*")])
         text_row("name", "App name *")
+        text_row("display_name", "Display name")
         text_row("version", "Version")
         text_row("publisher", "Publisher")
         text_row("icon", "Icon (.ico)", "file", [("Icon", "*.ico"), ("All files", "*")])

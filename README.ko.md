@@ -96,7 +96,7 @@ add_data = ["assets=assets"]
 languages = ["english", "korean"]
 ```
 
-`app_id`를 비워 두면 publisher와 name으로 GUID를 만듭니다. 둘 중 하나를 바꾸면 GUID도 바뀌어 기존 설치본을 업그레이드로 인식하지 못하므로, 첫 배포 전에 고정값을 넣는 것을 권장합니다. 전체 설정 목록은 [README.md](README.md#configuration)에 있습니다.
+`app_id`를 비워 두면 publisher와 name으로 GUID를 만듭니다. 둘 중 하나를 바꾸면 GUID도 바뀌어 기존 설치본을 업그레이드로 인식하지 못하므로, 첫 배포 전에 고정값을 넣는 것을 권장합니다. 이미 다른 Inno Setup 스크립트로 배포한 앱이면 그 AppId를 그대로 넣으면 됩니다(GUID가 아닌 문자열도 가능). 설치 화면·시작 메뉴에 보일 이름은 `display_name`, 설치 파일 이름은 `installer_name`(예: `"{name}_Setup_v{version}"`)으로 따로 정할 수 있습니다. 전체 설정 목록은 [README.md](README.md#configuration)에 있습니다.
 
 ## 데스크톱 창 (GUI)
 

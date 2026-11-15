@@ -130,11 +130,13 @@ languages = ["english", "korean"]
 | Key | Default | Meaning |
 |---|---|---|
 | `entry` | required | Script PyInstaller starts from |
-| `name` | required | Exe / installer name |
+| `name` | required | Exe name (also the default for the two keys below) |
+| `display_name` | `name` | Name shown in the installer, Start menu, install folder and Apps list |
+| `installer_name` | `{name}-{version}-setup` | Installer file name; may use `{name}`, `{version}`, `{display_name}` |
 | `version` | `0.1.0` | Version string; the first four numbers go into Windows version resources |
 | `publisher`, `description`, `copyright`, `website` | `""` | Metadata for version resources, installer and reports |
 | `icon` | none | `.ico` file |
-| `app_id` | derived | Installer GUID |
+| `app_id` | derived | Installer AppId: a GUID, or the existing non-GUID AppId of an app already released with another Inno Setup script |
 | `console` | `false` | `true` for command-line apps |
 | `onefile` | `false` | Also build a single-file exe |
 | `upx` | `false` | Allow UPX (adds a high-weight risk factor) |

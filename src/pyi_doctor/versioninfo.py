@@ -16,12 +16,12 @@ def version_strings(project: Project, *, file_description: str = ""):
     ver_str = project.version
     return [
         ("CompanyName", project.display_publisher),
-        ("FileDescription", file_description or project.description or project.name),
+        ("FileDescription", file_description or project.description or project.app_display_name),
         ("FileVersion", ver_str),
         ("InternalName", project.name),
         ("LegalCopyright", project.copyright or ""),
         ("OriginalFilename", project.name + ".exe"),
-        ("ProductName", project.name),
+        ("ProductName", project.app_display_name),
         ("ProductVersion", ver_str),
     ]
 

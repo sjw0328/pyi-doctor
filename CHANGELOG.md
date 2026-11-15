@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0 - 2026-11-15
+
+- New setting `display_name`: the name shown in the installer, Start menu, default install folder, Apps list and the exe's ProductName. Previously these always used `name` (the exe file name), so an exe named `MY_APP` showed as `MY_APP` everywhere. Defaults to `name`; also in the desktop window.
+- New setting `installer_name`: installer file name template with `{name}`, `{version}`, `{display_name}` (default unchanged: `{name}-{version}-setup`). Lets an existing update channel that expects a fixed file name keep working.
+- `app_id` now also accepts a non-GUID AppId, as Inno Setup does, so an app first released with a hand-written script can be upgraded in place. Braces and control characters are rejected.
+
 ## 1.4.0 - 2026-11-15
 
 - Desktop window (tkinter, no new dependency): `pyi-doctor gui`, `pyi-doctor-gui` or `python -m pyi_doctor.gui`. Build tab runs `build_all()` with a live log (form fields or a loaded `pyproject.toml`, step check boxes, Windows cross-build target); Diagnose tab scores any `.exe`.

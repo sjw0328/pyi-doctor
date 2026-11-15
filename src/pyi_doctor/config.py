@@ -82,6 +82,8 @@ class Project:
     entry: str
     name: str
     version: str = "0.1.0"
+    display_name: Optional[str] = None  # shown in the installer, Start menu and Apps list
+    installer_name: Optional[str] = None  # installer file name template, e.g. "{name}_Setup_v{version}"
     publisher: str = ""
     description: str = ""
     copyright: str = ""
@@ -124,6 +126,14 @@ class Project:
         unknown = [lang for lang in self.languages if lang not in KNOWN_LANGUAGES]
         if unknown:
             raise ConfigError(f"unknown installer languages: {unknown}; known: {sorted(KNOWN_LANGUAGES)}")
+        if self.display_name is not None:
+            dn = self.display_name
+            if not dn.strip() or not _NAME_RE.match(dn) or dn != dn.strip():
+                raise ConfigError(
+                    f"display_name {dn!r} is empty or contains characters not allowed in folder names"
+                )
+        if self.installer_name is not None:
+            self.installer_basename  # raises ConfigError when the template is invalid
         if self.app_id is not None:
             self._parse_app_id(self.app_id)
 
@@ -140,11 +150,16 @@ class Project:
                 raise ConfigError(f"add_data source not found: {self.resolve(src)}")
 
     @staticmethod
-    def _parse_app_id(value: str) -> uuid.UUID:
+    def _parse_app_id(value: str) -> Union[uuid.UUID, str]:
+        """GUID (with or without braces) or, as Inno Setup allows, any other fixed text."""
+        text = str(value).strip()
         try:
-            return uuid.UUID(value.strip().strip("{}"))
-        except ValueError as exc:
-            raise ConfigError(f"app_id {value!r} is not a GUID") from exc
+            return uuid.UUID(text.strip("{}"))
+        except ValueError:
+            pass
+        if not text or any(ord(ch) < 32 for ch in text) or "{" in text or "}" in text:
+            raise ConfigError(f"app_id {value!r} must be a GUID or text without braces/control characters")
+        return text
 
     # ------------------------------------------------------------------ paths
     def resolve(self, path: Union[str, Path]) -> Path:
@@ -189,7 +204,8 @@ class Project:
         explicitly once the application has been released.
         """
         if self.app_id:
-            return str(self._parse_app_id(self.app_id)).upper()
+            parsed = self._parse_app_id(self.app_id)
+            return str(parsed).upper() if isinstance(parsed, uuid.UUID) else parsed
         seed = f"{self.publisher.strip().lower()}|{self.name.strip().lower()}"
         return str(uuid.uuid5(_APP_ID_NAMESPACE, seed)).upper()
 
@@ -204,8 +220,38 @@ class Project:
         return tuple(parts[:4])  # type: ignore[return-value]
 
     @property
+    def app_id_is_guid(self) -> bool:
+        if not self.app_id:
+            return True
+        return isinstance(self._parse_app_id(self.app_id), uuid.UUID)
+
+    @property
     def display_publisher(self) -> str:
         return self.publisher or self.name
+
+    @property
+    def app_display_name(self) -> str:
+        """Name shown to users (installer, shortcuts, Apps list); defaults to ``name``."""
+        return self.display_name or self.name
+
+    @property
+    def installer_basename(self) -> str:
+        """Installer file name without ``.exe``; ``installer_name`` may use {name}, {version}, {display_name}."""
+        if self.installer_name is None:
+            return f"{self.name}-{self.version}-setup"
+        try:
+            out = self.installer_name.format(
+                name=self.name, version=self.version, display_name=self.app_display_name
+            )
+        except (KeyError, IndexError, ValueError) as exc:
+            raise ConfigError(
+                f"installer_name {self.installer_name!r}: use only {{name}}, {{version}}, {{display_name}}"
+            ) from exc
+        if out.lower().endswith(".exe"):
+            out = out[:-4]
+        if not out or not _NAME_RE.match(out) or out != out.strip():
+            raise ConfigError(f"installer_name gives {out!r}, which is not a valid file name")
+        return out
 
     # ------------------------------------------------------------------ loading
     @classmethod
@@ -266,11 +312,13 @@ SAMPLE_CONFIG = """\
 [tool.pyi-doctor]
 entry = "main.py"            # script PyInstaller starts from
 name = "MyApp"               # exe and installer name
+# display_name = "My App"    # shown in the installer and Start menu (default: name)
+# installer_name = "{name}_Setup_v{version}"   # default: {name}-{version}-setup
 version = "1.0.0"
 publisher = "Your Name"
 description = "What the app does"
 # icon = "assets/app.ico"
-# app_id = "PUT-A-FIXED-GUID-HERE"   # keep it fixed after the first release
+# app_id = "PUT-A-FIXED-GUID-HERE"   # keep it fixed after the first release (an existing non-GUID AppId also works)
 console = false              # true for command-line apps
 onefile = false              # true = also build a single-file exe
 # license_file = "LICENSE"   # shown in the installer
