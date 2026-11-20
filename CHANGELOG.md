@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.0 - 2026-11-20
+
+- Installer without a separate Inno Setup install: on Windows, when no `ISCC.exe` is found, `build` downloads the Inno Setup 7.1.1 installer from the official jrsoftware/issrc GitHub release, checks its SHA-256 against a pinned value and runs it in portable, current-user mode (`/VERYSILENT /CURRENTUSER /PORTABLE=1`) into `~/.cache/pyi-doctor/inno-setup` (or `PYI_DOCTOR_CACHE`). No administrator rights are requested; later builds reuse the unpacked copy. Library: `pyi_doctor.installer.ensure_iscc()`, `build_all(..., inno_download=...)`, `build_installer(..., download=...)`.
+- Turn the download off with `pyi-doctor build --no-inno-download`, `inno_download=False` or `PYI_DOCTOR_NO_INNO_DOWNLOAD=1`; the installer step is then skipped as before.
+- `find_iscc()` also looks in the default Inno Setup 7 folders and the pyi-doctor cache.
+- `check` reports a missing Inno Setup as info (it will be downloaded) instead of a warning, unless the download is turned off.
+- CI: the Windows integration job downloads and unpacks the pinned Inno Setup into a temporary cache (`test_real_download_and_unpack`); the Chocolatey install step is removed.
+
 ## 1.7.0 - 2026-11-15
 
 - README (English and Korean): measured time and output size of an AI-agent build with brief output (`quickref` + `check` + `build`: about 15 s and 1,311 characters on the bundled example, against 21,721 characters when reading the README and full output). This updates the PyPI project page; no code changes since 1.6.0.

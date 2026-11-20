@@ -38,7 +38,7 @@ print(report.ok)
 | 단계 | 내용 |
 |---|---|
 | 포터블 빌드 | PyInstaller **onedir** 빌드(기본). `--noupx`, Windows 버전 정보, 아이콘 적용. **onefile** 빌드 선택 가능 |
-| 설치 프로그램 | Inno Setup 스크립트 생성(업그레이드용 고정 AppId, 기본 사용자별 설치, 시작 메뉴·선택형 바탕화면 바로가기, 제거 프로그램, 한/영 등 다국어) 후 Inno Setup 6.3 이상이 설치돼 있으면 컴파일 |
+| 설치 프로그램 | Inno Setup 스크립트 생성(업그레이드용 고정 AppId, 기본 사용자별 설치, 시작 메뉴·선택형 바탕화면 바로가기, 제거 프로그램, 한/영 등 다국어) 후 컴파일. 윈도우에 Inno Setup이 없으면 고정 버전을 캐시에 먼저 내려받음(요구 사항 참고) |
 | 스모크 테스트 | 빌드 결과를 임시 폴더로 복사하고 파이썬 관련 환경 변수·경로를 뺀 상태로 실행. 누락 모듈·데이터 파일·DLL 오류를 찾아 힌트 제시 |
 | 백신 오탐 진단 | PE 파일을 순수 파이썬으로 읽어 흔히 거론되는 위험 요인(UPX, onefile, 버전 정보 없음, 서명 없음, 기본 부트로더, 기본 아이콘)을 점수화. Windows에서는 로컬 Microsoft Defender 명령줄 검사(치료 없이) 가능 |
 | 라이선스·SBOM | PyInstaller TOC 파일에서 포함된 모듈을 찾아 설치된 패키지와 연결하고 `THIRD_PARTY_LICENSES.txt`(exe 옆과 설치 프로그램에도 포함)와 CycloneDX SBOM 작성 |
@@ -52,7 +52,7 @@ onedir 빌드만 필수이고, 나머지 단계는 각자 상태를 기록하므
 pip install pyi-doctor
 ```
 
-요구 사항: Python 3.9+, PyInstaller 6+(의존성으로 설치). 설치 프로그램 단계는 Windows와 [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 이상이 필요합니다(동봉하지 않음, 기본 위치가 아니면 `PYI_DOCTOR_ISCC` 환경 변수로 지정). GitHub 업로드는 [GitHub CLI](https://cli.github.com/)가 필요합니다.
+요구 사항: Python 3.9+, PyInstaller 6+(의존성으로 설치). 설치 프로그램 단계는 Windows와 [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 이상이 필요합니다. Inno Setup은 동봉하지 않습니다. 설치된 사본(`PYI_DOCTOR_ISCC`, `PATH`, Inno Setup 6/7 기본 폴더)을 찾지 못하면 `build`가 공식 [jrsoftware/issrc GitHub 릴리스](https://github.com/jrsoftware/issrc/releases)에서 Inno Setup 7.1.1 설치 파일을 내려받아 pyi-doctor에 고정된 SHA-256 값과 비교한 뒤, 포터블·현재 사용자 모드(`/VERYSILENT /CURRENTUSER /PORTABLE=1`)로 pyi-doctor 캐시(`~/.cache/pyi-doctor/inno-setup`, 또는 `PYI_DOCTOR_CACHE`)에 풉니다. github.com 접속과 약 15MB가 필요하며 관리자 권한은 요청하지 않습니다. `--no-inno-download`, `build_all(..., inno_download=False)`, `PYI_DOCTOR_NO_INNO_DOWNLOAD=1`로 끌 수 있습니다. Inno Setup은 자체 라이선스를 따르는 제3자 소프트웨어이므로, 사용 전에 약관(다운로드 페이지의 [상업적 사용 안내](https://jrsoftware.org/isdl.php) 포함)을 확인하세요. GitHub 업로드는 [GitHub CLI](https://cli.github.com/)가 필요합니다.
 
 ## 설정 없이 시작하기
 
@@ -180,7 +180,7 @@ pyi-doctor는 코드를 난독화·암호화하거나 검사를 피하도록 숨
 
 `examples/hello`, Linux x86_64, Python 3.13, PyInstaller 6.22.3 기준(설치 프로그램 단계는 Windows 전용이라 제외): onedir 4.5초, onefile 12.2초, 라이선스·SBOM 0.8초, 스모크 테스트 0.6초, 진단 0.1초 미만, 릴리스 정리 1.5초, **합계 19.7초**.
 
-테스트: Linux에서 167개(실제 PyInstaller 빌드 2개, 크로스 빌드 2개 포함) 실행, CI는 Linux·Windows에서 Python 3.9~3.14로 유닛 테스트를, Linux에서 크로스 빌드와 Windows 실행 테스트를 합니다. Windows 전용 경로(버전 정보, Inno Setup 컴파일, Defender 검사, 스모크 테스트의 오류 창 감지)는 Windows CI 작업에서 실행됩니다.
+테스트: 212개(실제 PyInstaller 빌드 2개, 크로스 빌드 2개, Windows의 Inno Setup 다운로드 1개 포함), CI는 Linux·Windows에서 Python 3.9~3.14로 유닛 테스트를, Linux에서 크로스 빌드와 Windows 실행 테스트를 합니다. Windows 전용 경로(버전 정보, Inno Setup 컴파일, Defender 검사, 스모크 테스트의 오류 창 감지)는 Windows CI 작업에서 실행됩니다.
 
 ## 알려진 한계
 

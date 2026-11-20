@@ -39,14 +39,6 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install -e ".[test]"
-      - name: Install Inno Setup (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          if (-not (Get-Command iscc -ErrorAction SilentlyContinue) -and
-              -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
-            choco install innosetup -y --no-progress
-          }
       - run: python -m pytest -m integration -v
       - name: End-to-end build of the example app
         working-directory: examples/hello

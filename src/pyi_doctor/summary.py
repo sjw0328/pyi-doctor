@@ -46,8 +46,11 @@ def next_steps(report: Report, project=None) -> List[str]:
         exe = next((a["path"] for a in report.artifacts if a.get("kind") in ("onedir", "onefile")), "<exe>")
         add(f"after fixing, rebuild; to re-run only the start test: pyi-doctor smoke \"{exe}\"")
     inst = report.step("installer")
-    if inst and inst.status == "skipped" and "Inno Setup not found" in inst.message:
-        add(f"install Inno Setup 6.3+ ({INNO_SETUP_URL}) to get the setup.exe")
+    if inst and inst.status == "skipped" and "download failed" in inst.message:
+        add(f"Inno Setup download failed: check the network and rebuild, or install Inno Setup 6.3+ ({INNO_SETUP_URL})")
+    elif inst and inst.status == "skipped" and ("Inno Setup not found" in inst.message
+                                                or "compiler (ISCC.exe) not found" in inst.message):
+        add(f"install Inno Setup 6.3+ ({INNO_SETUP_URL}) or allow the automatic download to get the setup.exe")
     elif inst and inst.status == "skipped" and "needs Windows" in inst.message:
         add("compile the .iss script on Windows with Inno Setup, or build there to get the setup.exe")
     elif inst and inst.status == "failed":

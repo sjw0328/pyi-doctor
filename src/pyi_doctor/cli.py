@@ -112,6 +112,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         sbom_file=not args.no_sbom,
         github_tag=args.github_release,
         github_repo=args.github_repo,
+        inno_download=False if args.no_inno_download else None,
         log=None if (args.quiet or brief) else print,
     )
     if brief:
@@ -288,6 +289,8 @@ def make_parser() -> argparse.ArgumentParser:
     _add_project_args(b, settings=True)
     b.add_argument("--onefile", action="store_true", help="also build a single-file exe")
     b.add_argument("--no-installer", action="store_true")
+    b.add_argument("--no-inno-download", action="store_true",
+                   help="do not download Inno Setup when it is not installed (installer step is skipped)")
     b.add_argument("--no-smoke", action="store_true")
     b.add_argument("--no-diagnose", action="store_true")
     b.add_argument("--no-defender", action="store_true", help="skip the Microsoft Defender scan")

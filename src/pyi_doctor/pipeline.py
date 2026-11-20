@@ -70,12 +70,16 @@ def build_all(
     target: Optional[str] = None,
     requirements: Optional[List[str]] = None,
     python_version: Optional[str] = None,
+    inno_download: Optional[bool] = None,
     log: Optional[Logger] = None,
 ) -> Report:
     """Run every step and return a :class:`Report` (also written to ``<output>/release``).
 
     ``target``: ``None``/``"native"`` builds for the current OS; ``"win"`` builds
     a Windows x64 exe (cross build when not running on Windows, experimental).
+    ``inno_download``: when Inno Setup is not installed on Windows, download the
+    pinned version into the cache first (default: on unless
+    ``PYI_DOCTOR_NO_INNO_DOWNLOAD`` is set; ``False`` turns it off).
     """
     say: Logger = log or (lambda msg: None)
     if target not in (None, "native", "win"):
@@ -206,11 +210,17 @@ def build_all(
     elif installer:
         with _Timer() as t:
             iscc = inst_mod.find_iscc()
+            fetch_err = None
+            if iscc is None and sys.platform == "win32":
+                try:
+                    iscc = inst_mod.ensure_iscc(download=inno_download, log=say)
+                except (PyiDoctorError, ToolNotFoundError) as exc:
+                    fetch_err = str(exc).splitlines()[0]
             iss = inst_mod.write_iss(project, onedir.folder, iscc=iscc)
             if sys.platform != "win32":
                 status, msg = "skipped", f"installer needs Windows; script written to {iss}"
             elif iscc is None:
-                status, msg = "skipped", f"Inno Setup not found; script written to {iss}"
+                status, msg = "skipped", f"{fetch_err or 'Inno Setup not found'}; script written to {iss}"
             else:
                 try:
                     inst = inst_mod.compile_iss(project, iss, iscc)

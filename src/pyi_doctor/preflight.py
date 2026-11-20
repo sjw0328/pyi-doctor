@@ -81,12 +81,18 @@ def environment_checks(*, target: str = "native") -> List[Check]:
     if target == "win" and sys.platform != "win32":
         out.append(Check("installer", "info", "cross build: the Inno Setup script is written for compiling on Windows"))
     elif sys.platform == "win32":
+        from .installer import INNO_VERSION, auto_download_allowed
         iscc = find_iscc()
         if iscc:
             out.append(Check("installer", "ok", f"Inno Setup: {iscc}"))
+        elif auto_download_allowed():
+            out.append(Check("installer", "info",
+                             f"Inno Setup not installed; build downloads Inno Setup {INNO_VERSION} into the cache"))
         else:
-            out.append(Check("installer", "warning", "Inno Setup not found; the installer step will be skipped",
-                             f"install Inno Setup 6.3+ from {INNO_SETUP_URL} (or set PYI_DOCTOR_ISCC)"))
+            out.append(Check("installer", "warning",
+                             "Inno Setup not found and automatic download is off; the installer step will be skipped",
+                             f"install Inno Setup 6.3+ from {INNO_SETUP_URL}, set PYI_DOCTOR_ISCC, "
+                             "or unset PYI_DOCTOR_NO_INNO_DOWNLOAD"))
         if find_mpcmdrun():
             out.append(Check("defender", "ok", "Microsoft Defender command-line scanner found"))
         else:

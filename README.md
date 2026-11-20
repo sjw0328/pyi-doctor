@@ -42,7 +42,7 @@ dist/release/
 | Step | What happens |
 |---|---|
 | Portable build | PyInstaller **onedir** build (default) with `--noupx`, a Windows version resource and your icon. Optional **onefile** build. |
-| Installer | Writes an Inno Setup script (fixed AppId for upgrades, per-user install by default, modern wizard, Start menu / optional desktop shortcut, uninstaller, English + Korean and other languages) and compiles it when Inno Setup 6.3+ is installed. |
+| Installer | Writes an Inno Setup script (fixed AppId for upgrades, per-user install by default, modern wizard, Start menu / optional desktop shortcut, uninstaller, English + Korean and other languages) and compiles it. When Inno Setup is not installed on Windows, the pinned Inno Setup release is downloaded into the cache first (see Requirements). |
 | Smoke test | Copies each build to a temp folder and starts it with Python's environment variables and folders removed from the environment. Reports missing modules, data files and DLL errors with hints (e.g. "add 'x' to hidden_imports"). |
 | Antivirus diagnosis | Reads the PE file (pure Python) and scores commonly cited risk factors: UPX sections, onefile, missing version resource, no signature, prebuilt bootloader, default icon. On Windows it can also scan with the local Microsoft Defender CLI (no remediation). |
 | Licenses + SBOM | Maps bundled modules (from PyInstaller's TOC files) to installed distributions and writes `THIRD_PARTY_LICENSES.txt` (also placed next to the exe and inside the installer) and a CycloneDX SBOM. |
@@ -62,7 +62,7 @@ pyi-doctor was built by a student developer in Korea, with the help of AI coding
 pip install pyi-doctor
 ```
 
-Requirements: Python 3.9+, PyInstaller 6+ (installed as a dependency). The installer step needs Windows and [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer (not bundled; set `PYI_DOCTOR_ISCC` if it is not in the default location). The GitHub upload needs the [GitHub CLI](https://cli.github.com/).
+Requirements: Python 3.9+, PyInstaller 6+ (installed as a dependency). The installer step needs Windows and [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer. Inno Setup is not bundled. If no installed copy is found (`PYI_DOCTOR_ISCC`, `PATH`, the default Inno Setup 6/7 folders), `build` downloads the Inno Setup 7.1.1 installer from the official [jrsoftware/issrc GitHub release](https://github.com/jrsoftware/issrc/releases), checks its SHA-256 against a value pinned in pyi-doctor, and runs it in portable, current-user mode (`/VERYSILENT /CURRENTUSER /PORTABLE=1`) into the pyi-doctor cache (`~/.cache/pyi-doctor/inno-setup`, or `PYI_DOCTOR_CACHE`). This needs network access to github.com and about 15 MB; no administrator rights are requested. `--no-inno-download`, `build_all(..., inno_download=False)` or `PYI_DOCTOR_NO_INNO_DOWNLOAD=1` turn it off. Inno Setup is third-party software under its own license; check its terms (including the [commercial-use note](https://jrsoftware.org/isdl.php) on its download page) before you use it. The GitHub upload needs the [GitHub CLI](https://cli.github.com/).
 
 ## Zero-config start
 
@@ -229,12 +229,14 @@ pyi-doctor gui                          # open the desktop window
 
 ```python
 from pyi_doctor import Project, build_portable, build_installer, smoke_test, diagnose, collect_licenses, check, detect
+from pyi_doctor.installer import ensure_iscc
 
 project = Project.load(".")                          # pyproject.toml, or guessed settings (see project.detected)
 onedir = build_portable(project)                     # Artifact(kind="onedir", path=..., folder=...)
 result = smoke_test(onedir.path, timeout=10)         # SmokeResult(ok, status, missing_modules, ...)
 risk = diagnose(onedir.path, icon_configured=True)   # Diagnosis(score, level, factors, defender, ...)
-setup = build_installer(project, onedir.folder)      # Windows + Inno Setup
+setup = build_installer(project, onedir.folder)      # Windows; downloads Inno Setup if missing
+iscc = ensure_iscc()                                 # path to ISCC.exe (installed or downloaded)
 packages, mode = collect_licenses(project.work_path / "onedir")
 ```
 
@@ -262,7 +264,7 @@ pyi-doctor does not obfuscate, encrypt or otherwise hide code from scanners. It 
 | release folder (zip + checksums) | 1.5 s |
 | **total** | **19.7 s** |
 
-Test suite: 204 tests (including 2 real PyInstaller builds and 2 cross builds) on Linux; CI runs the unit tests on Python 3.9–3.14 on Linux and Windows, and the cross build on Linux with a start test on Windows. Windows-specific paths (version resource, Inno Setup compilation, Defender scan, error-dialog detection in the smoke test) run in the Windows CI jobs.
+Test suite: 212 tests (including 2 real PyInstaller builds, 2 cross builds and an Inno Setup download on Windows) on Linux; CI runs the unit tests on Python 3.9–3.14 on Linux and Windows, and the cross build on Linux with a start test on Windows. Windows-specific paths (version resource, Inno Setup compilation, Defender scan, error-dialog detection in the smoke test) run in the Windows CI jobs.
 
 ## Known limitations
 
