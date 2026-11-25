@@ -168,5 +168,8 @@ def test_compile_without_iscc(make_project, tmp_path, monkeypatch):
     from pyi_doctor import ToolNotFoundError
 
     monkeypatch.setattr(installer, "find_iscc", lambda: None)
+    # 1.8.0 downloads Inno Setup when it is missing; this test covers the "download off" case.
+    monkeypatch.setenv("PYI_DOCTOR_NO_INNO_DOWNLOAD", "1")
+    monkeypatch.setenv("PYI_DOCTOR_CACHE", str(tmp_path / "cache"))
     with pytest.raises(ToolNotFoundError):
         installer.compile_iss(make_project(), tmp_path / "x.iss")

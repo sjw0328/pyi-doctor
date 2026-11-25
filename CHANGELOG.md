@@ -6,6 +6,7 @@
 - No match gives `bootloader: unknown` with a note, and the factor is not scored (the exe may use a rebuilt bootloader or a PyInstaller version not present on this machine).
 - Library: `antivirus.stock_bootloaders()`, `antivirus.exe_bootloader_status()`, `PEInfo.text_sha256`. `diagnose(..., bootloader=None)` (default) uses the new check; passing a string keeps the old behaviour. `bootloader_status()` is unchanged and still describes the environment.
 - Diagnose output (CLI, window, report) drops "(PyInstaller in this environment)" after the bootloader value.
+- Fixes the Windows test that made the 1.8.0 release workflow fail before upload, so 1.8.0 was not published to PyPI; its changes (automatic Inno Setup download) ship with this release.
 
 ## 1.8.0 - 2026-11-20
 
