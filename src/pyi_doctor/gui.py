@@ -617,7 +617,7 @@ def diagnosis_lines(r) -> List[str]:
         f"  risk score : {r.score}/100 ({r.level})  [indicator only]",
         f"  sha256     : {r.sha256}",
         f"  defender   : {r.defender.status} {r.defender.detail}".rstrip(),
-        f"  bootloader : {r.bootloader} (PyInstaller in this environment)",
+        f"  bootloader : {r.bootloader}",
     ]
     for f in r.factors:
         lines.append(f"  - [{f.weight:2}] {f.label}\n         -> {f.advice}")

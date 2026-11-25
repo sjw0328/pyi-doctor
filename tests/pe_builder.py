@@ -20,6 +20,7 @@ def build_pe(
     overlay: bytes = b"",
     cookie: bool = False,
     signature: Optional[bytes] = None,
+    text: bytes = b"",
 ) -> bytes:
     res_types = list(resource_types)
     names = list(sections) + ([".rsrc"] if res_types else [])
@@ -44,6 +45,8 @@ def build_pe(
         va = SECT_ALIGN * (i + 1)
         raw_ptr = 0x400 + i * FILE_ALIGN
         raw = bytearray(FILE_ALIGN)
+        if name == ".text" and text:
+            raw[: len(text)] = text[:FILE_ALIGN]
         if name == ".rsrc":
             res_rva = va
             struct.pack_into("<IIHHHH", raw, 0, 0, 0, 4, 0, 0, len(res_types))

@@ -1,12 +1,14 @@
 """Minimal, read-only PE (Windows executable) reader.
 
 Only what the antivirus diagnosis needs: section names, presence of version /
-icon / manifest resources, Authenticode signature directory, the overlay and
-the PyInstaller archive cookie. Pure standard library; works on any OS.
+icon / manifest resources, Authenticode signature directory, the overlay,
+the PyInstaller archive cookie and a SHA-256 of the ``.text`` (code)
+section. Pure standard library; works on any OS.
 """
 
 from __future__ import annotations
 
+import hashlib
 import mmap
 import struct
 from dataclasses import asdict, dataclass, field
@@ -47,6 +49,7 @@ class PEInfo:
     signature_size: int = 0
     overlay_size: int = 0
     pyinstaller_archive: bool = False
+    text_sha256: str = ""
 
     @property
     def has_version_info(self) -> bool:
@@ -172,6 +175,12 @@ def _parse(data, path: str, size: int) -> PEInfo:
         window_start = max(image_end, search_end - 4096)
         archive = data.rfind(PYINSTALLER_COOKIE, window_start, search_end) != -1
 
+    text_sha256 = ""
+    for s in sections:
+        if s.name == ".text" and s.raw_size and s.raw_pointer + s.raw_size <= size:
+            text_sha256 = hashlib.sha256(data[s.raw_pointer : s.raw_pointer + s.raw_size]).hexdigest()
+            break
+
     return PEInfo(
         path=path,
         size=size,
@@ -183,4 +192,5 @@ def _parse(data, path: str, size: int) -> PEInfo:
         signature_size=sig_size if signed else 0,
         overlay_size=overlay,
         pyinstaller_archive=archive,
+        text_sha256=text_sha256,
     )

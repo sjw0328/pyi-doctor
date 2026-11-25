@@ -270,7 +270,7 @@ Test suite: 212 tests (including 2 real PyInstaller builds, 2 cross builds and a
 
 - Windows features (installer, version resource, Defender scan) need Windows. On other systems the `.iss` script is still written.
 - The smoke test is a heuristic. It removes Python from the environment but does not reproduce a clean PC (installed DLLs, Visual C++ runtime, fonts, etc.). GUI apps that keep running are counted as started. Windowed apps that crash show a PyInstaller error dialog; on Windows pyi-doctor looks for that dialog by window title, which may not catch every case.
-- The bootloader check compares the installed PyInstaller bootloader with the hashes recorded in its wheel. It describes the PyInstaller in the current environment, not an exe built elsewhere.
+- The bootloader check compares the exe's code section (`.text`) with stock PyInstaller Windows bootloaders found on this machine: the installed PyInstaller (on Windows) and the `win_amd64` wheels cached by `--target win`. An exe made with a PyInstaller version that is not present is reported as `unknown` and not scored.
 - License notices come from package metadata, which can be missing or wrong; packages loaded dynamically may be missed. Review the generated file.
 - Guessed settings and the quick checks are heuristics based on file names and imports; they can be wrong or miss problems.
 - Only PyInstaller is supported (no Nuitka / cx_Freeze). No code signing and no auto-update.

@@ -18,7 +18,7 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from . import pe
 
@@ -72,7 +72,7 @@ class Diagnosis:
     level: str  # LOW | MEDIUM | HIGH
     factors: List[Factor] = field(default_factory=list)
     pe: Optional[dict] = None
-    bootloader: str = "unknown"
+    bootloader: str = "unknown"  # stock | unknown | n/a, or the value passed to diagnose()
     defender: DefenderResult = field(default_factory=lambda: DefenderResult("skipped"))
     sha256: str = ""
     notes: List[str] = field(default_factory=list)
@@ -102,9 +102,20 @@ def is_onedir(exe: Path) -> bool:
 
 
 # ------------------------------------------------------------------ bootloader
+_BOOT_NAMES = ("run", "run.exe", "runw.exe", "run_d", "run_d.exe", "runw_d.exe")
+
+
+def _record_digest(data: bytes) -> str:
+    return base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
+
+
 def bootloader_status() -> str:
-    """'stock' if the installed bootloader matches the wheel's RECORD hash,
-    'custom' if it differs (rebuilt from source), 'unknown' otherwise."""
+    """State of the PyInstaller installed in *this* environment.
+
+    'stock' if its bootloader files match the wheel's RECORD hashes, 'custom'
+    if one differs (rebuilt from source), 'unknown' otherwise. This describes
+    the build environment, not a given exe; see :func:`exe_bootloader_status`.
+    """
     try:
         from importlib.metadata import distribution
 
@@ -118,16 +129,100 @@ def bootloader_status() -> str:
         if "/bootloader/" not in posix or not f.hash:
             continue
         name = posix.rsplit("/", 1)[-1]
-        if name not in ("run", "run.exe", "runw.exe", "run_d", "run_d.exe"):
+        if name not in _BOOT_NAMES:
             continue
         local = Path(f.locate())
         if not local.is_file() or f.hash.mode != "sha256":
             continue
-        digest = base64.urlsafe_b64encode(hashlib.sha256(local.read_bytes()).digest()).rstrip(b"=").decode()
         checked = True
-        if digest != f.hash.value:
+        if _record_digest(local.read_bytes()) != f.hash.value:
             return "custom"
     return "stock" if checked else "unknown"
+
+
+def _record_entries(record: Path) -> List[tuple]:
+    """(relative path, sha256 RECORD digest) of Windows bootloaders listed in a wheel RECORD."""
+    out = []
+    try:
+        lines = record.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return out
+    for line in lines:
+        parts = line.rsplit(",", 2)
+        if len(parts) != 3 or not parts[1].startswith("sha256="):
+            continue
+        rel = parts[0].strip('"').replace("\\", "/")
+        if "/bootloader/Windows-" in rel and rel.rsplit("/", 1)[-1] in _BOOT_NAMES:
+            out.append((rel, parts[1][len("sha256="):]))
+    return out
+
+
+def _stock_from_record(record: Path, root: Path, version: str, known: Dict[str, str]) -> None:
+    for rel, digest in _record_entries(record):
+        f = root / rel
+        if not f.is_file():
+            continue
+        data = f.read_bytes()
+        if _record_digest(data) != digest:
+            continue  # rebuilt or altered: not a stock reference
+        try:
+            text = pe.parse(f).text_sha256
+        except pe.NotAPEFile:
+            continue
+        if text:
+            known.setdefault(text, version)
+
+
+def stock_bootloaders(cache: Optional[Path] = None) -> Dict[str, str]:
+    """Map ``.text`` SHA-256 -> PyInstaller version for stock Windows bootloaders on this machine.
+
+    Sources: the PyInstaller installed in this environment (Windows wheels
+    carry the Windows bootloaders) and the ``win_amd64`` wheels unpacked by the
+    cross build in the pyi-doctor cache. A file is used only when it matches
+    the hash recorded in its wheel's RECORD.
+    """
+    known: Dict[str, str] = {}
+    try:
+        from importlib.metadata import distribution
+
+        dist = distribution("pyinstaller")
+        rec = next((f for f in (dist.files or []) if str(f).replace("\\", "/").endswith(".dist-info/RECORD")), None)
+        if rec is not None:
+            rec_path = Path(rec.locate())
+            _stock_from_record(rec_path, rec_path.parent.parent, dist.version, known)
+    except Exception:
+        pass
+    try:
+        from .cross.fetch import cache_dir
+
+        base = cache_dir(cache) / "pyinstaller-win"
+        if base.is_dir():
+            for ver_dir in sorted(d for d in base.iterdir() if d.is_dir()):
+                for rec_path in ver_dir.glob("pyinstaller-*.dist-info/RECORD"):
+                    _stock_from_record(rec_path, ver_dir, ver_dir.name, known)
+    except Exception:
+        pass
+    return known
+
+
+def exe_bootloader_status(info: "pe.PEInfo", known: Optional[Dict[str, str]] = None) -> tuple:
+    """('stock' | 'unknown', note) for the bootloader inside ``info``.
+
+    Compares the exe's ``.text`` section with stock PyInstaller Windows
+    bootloaders found on this machine. Adding icon, version or manifest
+    resources does not change that section. No match gives 'unknown': the exe
+    may use a rebuilt bootloader or a PyInstaller version not present here.
+    """
+    if known is None:
+        known = stock_bootloaders()
+    if info.text_sha256 and info.text_sha256 in known:
+        return "stock", f"bootloader matches the stock PyInstaller {known[info.text_sha256]} Windows bootloader"
+    if not known:
+        return "unknown", ("no stock PyInstaller Windows bootloader to compare with on this machine "
+                           "(available after a Windows PyInstaller install or a --target win build)")
+    versions = ", ".join(sorted(set(known.values())))
+    return "unknown", (f"bootloader does not match the stock Windows bootloaders of PyInstaller {versions}; "
+                       "it may be rebuilt from source or from another PyInstaller version")
 
 
 # --------------------------------------------------------------------- defender
@@ -191,6 +286,9 @@ def diagnose(
     the icon factor (it cannot be told apart from the binary alone).
     ``expect_pyinstaller``: set to ``False`` for files that are not PyInstaller
     builds (e.g. the Inno Setup installer) to skip the missing-marker note.
+    ``bootloader``: ``None`` (default) checks the bootloader inside ``exe``
+    against stock PyInstaller Windows bootloaders on this machine; a string
+    ('stock', 'custom', 'n/a', ...) is used as given.
     """
     exe = Path(exe)
     notes: List[str] = []
@@ -212,7 +310,13 @@ def diagnose(
             keys.append("unsigned")
         if not info.pyinstaller_archive and expect_pyinstaller:
             notes.append("no PyInstaller archive marker found; the file may not be a PyInstaller build")
-    boot = bootloader if bootloader is not None else bootloader_status()
+    if bootloader is not None:
+        boot = bootloader
+    elif info is not None and info.pyinstaller_archive:
+        boot, boot_note = exe_bootloader_status(info)
+        notes.append(boot_note)
+    else:
+        boot = "unknown"
     if info is not None and info.pyinstaller_archive and boot == "stock":
         keys.append("stock_bootloader")
     if icon_configured is False:

@@ -146,3 +146,72 @@ def test_find_mpcmdrun_non_windows(monkeypatch):
 
 def test_bootloader_status_values():
     assert antivirus.bootloader_status() in ("stock", "custom", "unknown")
+
+
+# ------------------------------------------------- bootloader inside the exe
+import base64
+import hashlib
+
+
+def _fake_cache(tmp_path, version="6.99.0", code=b"STOCK-CODE", tamper=False):
+    """A cross-build cache entry: unpacked win_amd64 wheel with RECORD."""
+    root = tmp_path / "cache" / "pyinstaller-win" / version
+    boot = root / "PyInstaller" / "bootloader" / "Windows-64bit-intel"
+    boot.mkdir(parents=True)
+    data = build_pe(text=code)
+    (boot / "run.exe").write_bytes(data)
+    digest = base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
+    if tamper:
+        (boot / "run.exe").write_bytes(data + b"x")
+    rec = root / f"pyinstaller-{version}.dist-info" / "RECORD"
+    rec.parent.mkdir()
+    rec.write_text(f"PyInstaller/bootloader/Windows-64bit-intel/run.exe,sha256={digest},{len(data)}\n"
+                   f"pyinstaller-{version}.dist-info/RECORD,,\n")
+    return tmp_path / "cache"
+
+
+def test_text_sha256(tmp_path):
+    a = pe.parse(_write(tmp_path, build_pe(text=b"A"), "a.exe"))
+    b = pe.parse(_write(tmp_path, build_pe(text=b"A", resource_types=[14, 16], overlay=b"o" * 100), "b.exe"))
+    c = pe.parse(_write(tmp_path, build_pe(text=b"B"), "c.exe"))
+    assert len(a.text_sha256) == 64
+    assert a.text_sha256 == b.text_sha256 != c.text_sha256
+
+
+def test_stock_bootloaders_from_cache(tmp_path, monkeypatch):
+    monkeypatch.setenv("PYI_DOCTOR_CACHE", str(_fake_cache(tmp_path)))
+    known = antivirus.stock_bootloaders()
+    ref = pe.parse(_write(tmp_path, build_pe(text=b"STOCK-CODE"))).text_sha256
+    assert known.get(ref) == "6.99.0"
+
+
+def test_stock_bootloaders_ignores_altered_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("PYI_DOCTOR_CACHE", str(_fake_cache(tmp_path, tamper=True)))
+    ref = pe.parse(_write(tmp_path, build_pe(text=b"STOCK-CODE"))).text_sha256
+    assert ref not in antivirus.stock_bootloaders()
+
+
+def test_diagnose_reads_bootloader_from_exe(tmp_path, monkeypatch):
+    monkeypatch.setenv("PYI_DOCTOR_CACHE", str(_fake_cache(tmp_path)))
+    stock = _write(tmp_path, build_pe(text=b"STOCK-CODE", resource_types=[16], cookie=True), "stock.exe")
+    other = _write(tmp_path, build_pe(text=b"REBUILT", resource_types=[16], cookie=True), "other.exe")
+    d1 = antivirus.diagnose(stock, defender=False)
+    d2 = antivirus.diagnose(other, defender=False)
+    assert d1.bootloader == "stock" and "stock_bootloader" in {f.key for f in d1.factors}
+    assert any("6.99.0" in n for n in d1.notes)
+    assert d2.bootloader == "unknown" and "stock_bootloader" not in {f.key for f in d2.factors}
+
+
+def test_diagnose_bootloader_independent_of_environment(tmp_path, monkeypatch):
+    """The environment's own bootloader state must not change the result for a given exe."""
+    monkeypatch.setenv("PYI_DOCTOR_CACHE", str(_fake_cache(tmp_path)))
+    exe = _write(tmp_path, build_pe(text=b"STOCK-CODE", cookie=True))
+    for state in ("stock", "custom", "unknown"):
+        monkeypatch.setattr(antivirus, "bootloader_status", lambda s=state: s)
+        assert antivirus.diagnose(exe, defender=False).bootloader == "stock"
+
+
+def test_exe_bootloader_status_nothing_to_compare(tmp_path):
+    info = pe.parse(_write(tmp_path, build_pe(text=b"X")))
+    status, note = antivirus.exe_bootloader_status(info, known={})
+    assert status == "unknown" and "no stock" in note

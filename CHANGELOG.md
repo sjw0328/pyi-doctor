@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.9.0 - 2026-11-25
+
+- Antivirus diagnosis: the prebuilt-bootloader factor is now decided from the exe itself. Its `.text` (code) section is compared with the stock PyInstaller Windows bootloaders found on this machine (the installed PyInstaller and the `win_amd64` wheels cached by `--target win`); reference files are used only when they match their wheel RECORD hash. Previously the factor reflected the PyInstaller of the current environment, so the same exe could score differently on another machine (for example 25 MEDIUM vs 15 LOW).
+- No match gives `bootloader: unknown` with a note, and the factor is not scored (the exe may use a rebuilt bootloader or a PyInstaller version not present on this machine).
+- Library: `antivirus.stock_bootloaders()`, `antivirus.exe_bootloader_status()`, `PEInfo.text_sha256`. `diagnose(..., bootloader=None)` (default) uses the new check; passing a string keeps the old behaviour. `bootloader_status()` is unchanged and still describes the environment.
+- Diagnose output (CLI, window, report) drops "(PyInstaller in this environment)" after the bootloader value.
+
 ## 1.8.0 - 2026-11-20
 
 - Installer without a separate Inno Setup install: on Windows, when no `ISCC.exe` is found, `build` downloads the Inno Setup 7.1.1 installer from the official jrsoftware/issrc GitHub release, checks its SHA-256 against a pinned value and runs it in portable, current-user mode (`/VERYSILENT /CURRENTUSER /PORTABLE=1`) into `~/.cache/pyi-doctor/inno-setup` (or `PYI_DOCTOR_CACHE`). No administrator rights are requested; later builds reuse the unpacked copy. Library: `pyi_doctor.installer.ensure_iscc()`, `build_all(..., inno_download=...)`, `build_installer(..., download=...)`.

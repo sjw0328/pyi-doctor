@@ -236,13 +236,12 @@ def build_all(
     if diagnose:
         results = []
         with _Timer() as t:
-            boot = "stock" if cross else diag_mod.bootloader_status()
             for a in artifacts:
                 say(f"Diagnosing {a.path.name} ...")
                 icon = (project.icon is not None) if a.kind != "installer" else None
                 is_inst = a.kind == "installer"
                 d = diag_mod.diagnose(a.path, icon_configured=icon, defender=defender,
-                                      bootloader="n/a" if is_inst else boot, expect_pyinstaller=not is_inst)
+                                      bootloader="n/a" if is_inst else None, expect_pyinstaller=not is_inst)
                 results.append(d.to_dict())
         detected = [r for r in results if r["defender"]["status"] == "detected"]
         worst = max((r["score"] for r in results), default=0)
